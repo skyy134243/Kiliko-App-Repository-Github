@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+}
+
+/* Print Optimization for Surat Bebas Tugas Digital */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  
+  header, nav, footer, .print\\:hidden, #role-switcher {
+    display: none !important;
+  }
+
+  #printable-certificate {
+    border: 2px solid #000 !important;
+    padding: 24px !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+}

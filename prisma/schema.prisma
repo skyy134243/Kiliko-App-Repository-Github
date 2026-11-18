@@ -1,0 +1,263 @@
+// Prisma Schema for Kiliko.App
+// Platform Digital Tugas, Absensi, dan Nilai Sekolah
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite" // Can switch to "postgresql" or "mysql" in production
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SISWA
+  GURU
+  BK             // Pendamping absensi & penanganan bot
+  TU             // Pendamping nilai & tabel nilai sekolah
+  KEPALA_SEKOLAH // Otorisasi Tanda Tangan Elektronik Surat Bebas Tugas
+  ADMIN          // Pengelola teknis
+}
+
+enum TaskType {
+  LKPD_ESAI      // Foto jawaban lembar kerja
+  PILIHAN_GANDA  // Auto-graded quiz dengan kunci jawaban terkunci
+  PRAKTIKUM      // Laporan praktikum teknis/laboratorium
+  KELOMPOK       // Pengumpulan per folder kelompok, nilai kolektif sama
+}
+
+enum TaskCategory {
+  TENGGAT        // WAJIB tuntas untuk terbit Surat Bebas Tugas
+  BIASA          // Mempengaruhi rapor, tidak memblokir surat bebas tugas
+}
+
+enum SubmissionStatus {
+  BELUM_DIKERJAKAN
+  DIKUMPULKAN
+  DINILAI
+}
+
+enum AttendanceStatus {
+  HADIR
+  DISPEN
+  IZIN
+  SAKIT
+  ALPA
+}
+
+enum AlertPriority {
+  MENDESAK       // Alpa >= 3 dalam 1 hari
+  INFORMASI      // Sakit / Izin / Dispen >= 3 dalam 1 hari
+}
+
+enum FollowUpStatus {
+  PENDING
+  IN_PROGRESS
+  RESOLVED
+}
+
+model User {
+  id              String         @id @default(uuid())
+  email           String         @unique
+  passwordHash    String
+  name            String
+  identifierNumber String?       // NISN untuk Siswa, NIP untuk Guru/Staff
+  role            Role           @default(SISWA)
+  avatarUrl       String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  // Relasi Siswa
+  classId         String?
+  class           Class?         @relation("ClassStudents", fields: [classId], references: [id])
+  submissions     Submission[]   @relation("StudentSubmissions")
+  attendanceRecords AttendanceRecord[] @relation("StudentAttendances")
+  botAlerts       BotAttendanceAlert[] @relation("StudentAlerts")
+  clearanceLetters ClearanceLetter[] @relation("StudentClearances")
+  gradebookRecords GradebookRecord[] @relation("StudentGrades")
+
+  // Relasi Guru
+  taughtClasses   ClassTeacher[]
+  createdTasks    Assignment[]   @relation("TeacherAssignments")
+  gradedSubmissions Submission[] @relation("TeacherGradedSubmissions")
+  attendanceSessions AttendanceSession[] @relation("TeacherAttendanceSessions")
+
+  // Relasi BK
+  handledAlerts   BotAttendanceAlert[] @relation("BKHandledAlerts")
+}
+
+model Class {
+  id              String         @id @default(uuid())
+  name            String         // contoh: "X IPA 1", "XII RPL 2"
+  gradeLevel      Int            // 10, 11, 12
+  academicYear    String         // contoh: "2026/2027"
+  semester        Int            // 1 (Ganjil) atau 2 (Genap)
+  students        User[]         @relation("ClassStudents")
+  teachers        ClassTeacher[]
+  assignments     Assignment[]
+  attendanceSessions AttendanceSession[]
+  createdAt       DateTime       @default(now())
+}
+
+model Subject {
+  id              String         @id @default(uuid())
+  code            String         @unique // contoh: "MAT-X", "BIO-XI"
+  name            String         // contoh: "Matematika Wajib", "Biologi"
+  assignments     Assignment[]
+  attendanceSessions AttendanceSession[]
+  gradebookRecords GradebookRecord[]
+}
+
+model ClassTeacher {
+  id              String         @id @default(uuid())
+  classId         String
+  teacherId       String
+  class           Class          @relation(fields: [classId], references: [id])
+  teacher         User           @relation(fields: [teacherId], references: [id])
+
+  @@unique([classId, teacherId])
+}
+
+model Assignment {
+  id              String         @id @default(uuid())
+  title           String
+  description     String
+  type            TaskType       @default(LKPD_ESAI)
+  category        TaskCategory   @default(BIASA)
+  deadline        DateTime
+  attachmentUrl   String?        // File pendukung / foto soal dari guru
+  
+  // Aturan Bisnis Pilihan Ganda: Wajib dikunci sebelum publish
+  isAnswerKeyLocked Boolean      @default(false)
+  quizQuestionsJson String?      // JSON data soal, opsi A-E, dan kunci jawaban
+
+  // Relasi
+  classId         String
+  class           Class          @relation(fields: [classId], references: [id])
+  subjectId       String
+  subject         Subject        @relation(fields: [subjectId], references: [id])
+  teacherId       String
+  teacher         User           @relation("TeacherAssignments", fields: [teacherId], references: [id])
+  
+  submissions     Submission[]
+  gradebookRecords GradebookRecord[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model Submission {
+  id              String           @id @default(uuid())
+  assignmentId    String
+  assignment      Assignment       @relation(fields: [assignmentId], references: [id])
+  studentId       String
+  student         User             @relation("StudentSubmissions", fields: [studentId], references: [id])
+  
+  status          SubmissionStatus @default(BELUM_DIKERJAKAN)
+  submittedAt     DateTime?
+  
+  // Jawaban
+  photoAnswerUrl  String?          // Foto jawaban fisik untuk LKPD/Esai
+  textContent     String?
+  selectedAnswersJson String?      // JSON jawaban siswa untuk Pilihan Ganda
+  attachmentUrlsJson  String?      // Dokumen / Video / Slide untuk Praktikum/Kelompok
+  
+  // Data Tugas Kelompok
+  groupId         String?
+  groupMembersJson String?         // Daftar nama anggota kelompok
+
+  // Penilaian
+  score           Float?
+  teacherFeedback String?
+  gradedAt        DateTime?
+  gradedById      String?
+  gradedBy        User?            @relation("TeacherGradedSubmissions", fields: [gradedById], references: [id])
+
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([assignmentId, studentId])
+}
+
+model GradebookRecord {
+  id              String         @id @default(uuid())
+  studentId       String
+  student         User           @relation("StudentGrades", fields: [studentId], references: [id])
+  subjectId       String
+  subject         Subject        @relation(fields: [subjectId], references: [id])
+  assignmentId    String
+  assignment      Assignment     @relation(fields: [assignmentId], references: [id])
+  score           Float
+  isAutoSynced    Boolean        @default(true) // Diinput otomatis oleh bot platform
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@unique([studentId, assignmentId])
+}
+
+model AttendanceSession {
+  id              String         @id @default(uuid())
+  date            DateTime       // Tanggal absensi (YYYY-MM-DD)
+  periodNumber    Int            // Jam ke-1, Jam ke-2, dll.
+  classId         String
+  class           Class          @relation(fields: [classId], references: [id])
+  subjectId       String
+  subject         Subject        @relation(fields: [subjectId], references: [id])
+  teacherId       String
+  teacher         User           @relation("TeacherAttendanceSessions", fields: [teacherId], references: [id])
+  
+  records         AttendanceRecord[]
+  createdAt       DateTime       @default(now())
+}
+
+model AttendanceRecord {
+  id              String           @id @default(uuid())
+  sessionId       String
+  session         AttendanceSession @relation(fields: [sessionId], references: [id])
+  studentId       String
+  student         User             @relation("StudentAttendances", fields: [studentId], references: [id])
+  status          AttendanceStatus @default(HADIR)
+  reason          String?          // Keterangan/alasan untuk sakit, izin, dispen, alpa
+  createdAt       DateTime         @default(now())
+
+  @@unique([sessionId, studentId])
+}
+
+model BotAttendanceAlert {
+  id              String         @id @default(uuid())
+  date            DateTime       // Tanggal kejadian
+  studentId       String
+  student         User           @relation("StudentAlerts", fields: [studentId], references: [id])
+  
+  totalAbsences   Int            // Jumlah mapel tidak hadir (minimal 3)
+  alpaCount       Int
+  priority        AlertPriority  // MENDESAK jika ada alpa >= 3, INFORMASI jika sakit/izin/dispen
+  detailsJson     String         // JSON ringkasan mapel, jam, status, dan alasan
+  
+  followUpStatus  FollowUpStatus @default(PENDING)
+  bkNotes         String?        // Catatan tindak lanjut guru BK
+  resolvedById    String?
+  resolvedBy      User?          @relation("BKHandledAlerts", fields: [resolvedById], references: [id])
+  resolvedAt      DateTime?
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model ClearanceLetter {
+  id                    String    @id @default(uuid())
+  studentId             String
+  student               User      @relation("StudentClearances", fields: [studentId], references: [id])
+  academicYear          String    // contoh: "2026/2027"
+  semester              Int       // 1 atau 2
+  verificationCode      String    @unique // UUID untuk validasi QR Code publik
+  isEligible            Boolean   @default(true) // Seluruh tugas tenggat tuntas
+  allPendingDoneAt      DateTime  @default(now())
+  
+  // Tanda Tangan Elektronik (TTE) Kepala Sekolah
+  isSignedByPrincipal   Boolean   @default(false)
+  principalSignatureHash String?
+  principalSignedAt     DateTime?
+  
+  issuedAt              DateTime  @default(now())
+  pdfUrl                String?
+}
