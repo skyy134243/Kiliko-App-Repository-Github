@@ -3,13 +3,16 @@ import { useApp } from '../../context/AppContext';
 import { createDeadlineReminderWaNotification } from '../../services/whatsappGateway';
 
 export const WaliKelasDashboardView: React.FC = () => {
-  const { users, assignments, submissions, attendance, botAlerts, waLogs, sendWhatsAppMessage } = useApp();
+  const { users, classes, assignments, submissions, botAlerts, waLogs, sendWhatsAppMessage } = useApp();
 
   const [activeTab, setActiveTab] = useState<'monitoring' | 'wa-logs'>('monitoring');
+  const [selectedClassId, setSelectedClassId] = useState<string>('cls-x-1');
 
-  // Filter siswa kelas X IPA 1
-  const classStudents = users.filter((u) => u.role === 'SISWA' && u.classId === 'cls-x-ipa-1');
-  const deadlineTasks = assignments.filter((a) => a.category === 'TENGGAT' && a.classId === 'cls-x-ipa-1');
+  const selectedClass = classes.find((c) => c.id === selectedClassId) || classes[0];
+
+  // Filter siswa kelas terpilih
+  const classStudents = users.filter((u) => u.role === 'SISWA' && u.classId === selectedClassId);
+  const deadlineTasks = assignments.filter((a) => a.category === 'TENGGAT' && (!a.classId || a.classId === selectedClassId));
 
   // Function to send WhatsApp reminder to parent
   const handleSendWaReminder = (studentId: string, taskId: string) => {
@@ -31,15 +34,27 @@ export const WaliKelasDashboardView: React.FC = () => {
             <div className="flex items-center gap-2 mb-1">
               <span className="text-2xl">👩‍🏫</span>
               <h1 className="text-xl font-extrabold tracking-tight">
-                Dasbor Wali Kelas — Kelas X IPA 1
+                Dasbor Wali Kelas — Kelas {selectedClass?.name || 'X-1'}
               </h1>
             </div>
             <p className="text-xs text-emerald-100 max-w-2xl leading-relaxed">
-              Ibu Sri Wahyuni, M.Pd (Wali Kelas) · Memantau rekap ketuntasan tugas tenggat seluruh mapel, peringatan absensi harian, dan notifikasi WhatsApp ke orang tua murid.
+              {selectedClass?.homeroomTeacherName || 'Ibu Sri Wahyuni, M.Pd'} · Memantau rekap ketuntasan tugas tenggat seluruh mapel, absensi harian, dan notifikasi WhatsApp ke orang tua murid SMAN 1 Kandangan.
             </p>
           </div>
 
-          <div className="flex items-center gap-2 bg-emerald-950/60 p-1.5 rounded-xl border border-emerald-600/30">
+          <div className="flex flex-wrap items-center gap-2 bg-emerald-950/60 p-2 rounded-xl border border-emerald-600/30">
+            <select
+              value={selectedClassId}
+              onChange={(e) => setSelectedClassId(e.target.value)}
+              className="text-xs font-bold bg-emerald-900 border border-emerald-700 text-white rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-emerald-400"
+            >
+              {classes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  Kelas {c.name}
+                </option>
+              ))}
+            </select>
+
             <button
               onClick={() => setActiveTab('monitoring')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
@@ -69,7 +84,7 @@ export const WaliKelasDashboardView: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                Total Siswa Asuhan
+                Total Siswa Kelas {selectedClass?.name}
               </span>
               <div className="text-3xl font-black text-slate-800 my-1">{classStudents.length} Siswa</div>
               <span className="text-[11px] text-emerald-600 font-semibold">Tahun Ajaran 2026/2027</span>
@@ -98,17 +113,19 @@ export const WaliKelasDashboardView: React.FC = () => {
                 Peringatan Bot Absensi Hari Ini
               </span>
               <div className="text-3xl font-black text-rose-600 my-1">
-                {botAlerts.filter((a) => a.studentClass === 'X IPA 1').length} Kasus
+                {botAlerts.filter((a) => a.studentClass === selectedClass?.name).length} Kasus
               </div>
               <span className="text-[11px] text-rose-600 font-semibold">Tembusan dikirim ke BK & Wali Kelas</span>
             </div>
           </div>
 
-          {/* Tabel Status Siswa Kelas X IPA 1 */}
+          {/* Tabel Status Siswa Kelas */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
             <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-slate-900 text-sm">Status Ketuntasan & Absensi Per Siswa</h3>
+                <h3 className="font-bold text-slate-900 text-sm">
+                  Daftar Peserta Didik Kelas {selectedClass?.name} ({classStudents.length} Siswa)
+                </h3>
                 <p className="text-[11px] text-slate-500">
                   Wali kelas dapat langsung mengirimkan pengingat WhatsApp ke orang tua siswa yang belum menuntaskan tugas.
                 </p>
@@ -127,7 +144,6 @@ export const WaliKelasDashboardView: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {classStudents.map((student) => {
-                  // Cek tugas tenggat yang belum tuntas
                   const pending = deadlineTasks.filter((task) => {
                     const sub = submissions.find((s) => s.assignmentId === task.id && s.studentId === student.id);
                     return !sub || sub.status === 'BELUM_DIKERJAKAN';
@@ -140,7 +156,7 @@ export const WaliKelasDashboardView: React.FC = () => {
                       <td className="p-3.5 font-bold text-slate-900">
                         {student.name}
                         <span className="block text-[10px] text-slate-400 font-mono font-normal">
-                          NIS: {student.identifierNumber}
+                          NISN: {student.identifierNumber}
                         </span>
                       </td>
 
@@ -207,7 +223,7 @@ export const WaliKelasDashboardView: React.FC = () => {
             <div>
               <h2 className="text-base font-bold text-slate-900">Riwayat Pengiriman Pesan WhatsApp Otomatis</h2>
               <p className="text-xs text-slate-500">
-                Log real-time notifikasi yang dikirimkan oleh Bot Kiliko.App ke nomor WhatsApp orang tua/wali murid.
+                Log real-time notifikasi yang dikirimkan oleh Bot Kiliko.App ke nomor WhatsApp orang tua/wali murid SMAN 1 Kandangan.
               </p>
             </div>
             <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
