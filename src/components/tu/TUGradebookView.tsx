@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 
 export const TUGradebookView: React.FC = () => {
-  const { gradebook, classes, subjects, users } = useApp();
+  const { gradebook, classes, subjects } = useApp();
 
   const [selectedClassId, setSelectedClassId] = useState<string>(classes[0]?.id || '');
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('ALL');
+  const [showRaporModal, setShowRaporModal] = useState<boolean>(false);
 
   // Filter gradebook
   const filteredRecords = gradebook.filter((entry) => {
@@ -21,10 +22,6 @@ export const TUGradebookView: React.FC = () => {
           (filteredRecords.reduce((acc, curr) => acc + curr.score, 0) / filteredRecords.length) * 10
         ) / 10
       : 0;
-
-  const handleExportSim = () => {
-    alert('✓ File Rekap Nilai Kiliko.xlsx siap diunduh untuk integrasi e-Rapor sekolah!');
-  };
 
   return (
     <div className="space-y-6">
@@ -49,10 +46,10 @@ export const TUGradebookView: React.FC = () => {
           </div>
 
           <button
-            onClick={handleExportSim}
-            className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-xs transition flex items-center gap-2"
+            onClick={() => setShowRaporModal(true)}
+            className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition flex items-center gap-2"
           >
-            <span>📥 Export ke Excel / e-Rapor</span>
+            <span>📑 Format e-Rapor Kurikulum Merdeka</span>
           </button>
         </div>
       </div>
@@ -103,8 +100,8 @@ export const TUGradebookView: React.FC = () => {
               <th className="p-3.5">NISN</th>
               <th className="p-3.5">Nama Siswa</th>
               <th className="p-3.5">Mata Pelajaran</th>
-              <th className="p-3.5">Tugas</th>
-              <th className="p-3.5 text-center">Kategori</th>
+              <th className="p-3.5">Tugas & Capaian (TP)</th>
+              <th className="p-3.5 text-center">Tipe Penilaian</th>
               <th className="p-3.5 text-center">Nilai</th>
               <th className="p-3.5 text-center">Sinkronisasi</th>
               <th className="p-3.5">Waktu Sinkron</th>
@@ -123,16 +120,21 @@ export const TUGradebookView: React.FC = () => {
                   <td className="p-3.5 font-mono text-slate-500">{rec.studentNis}</td>
                   <td className="p-3.5 font-bold text-slate-900">{rec.studentName}</td>
                   <td className="p-3.5 font-medium text-slate-700">{rec.subjectName}</td>
-                  <td className="p-3.5 text-slate-600 max-w-xs truncate">{rec.assignmentTitle}</td>
+                  <td className="p-3.5 text-slate-600 max-w-xs">
+                    <p className="font-semibold text-slate-800">{rec.assignmentTitle}</p>
+                    <span className="text-[10px] text-slate-400 italic block mt-0.5 truncate">
+                      {rec.learningObjective || 'TP Kurikulum Merdeka'}
+                    </span>
+                  </td>
                   <td className="p-3.5 text-center">
                     <span
                       className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        rec.taskCategory === 'TENGGAT'
-                          ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                          : 'bg-slate-100 text-slate-600'
+                        rec.assessmentType === 'FORMATIF'
+                          ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                          : 'bg-purple-50 text-purple-700 border border-purple-200'
                       }`}
                     >
-                      {rec.taskCategory}
+                      {rec.assessmentType || 'FORMATIF'}
                     </span>
                   </td>
                   <td className="p-3.5 text-center">
@@ -162,6 +164,60 @@ export const TUGradebookView: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Modal Format e-Rapor Kurikulum Merdeka */}
+      {showRaporModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div>
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">
+                  Kemendikbudristek RI Template Ready
+                </span>
+                <h3 className="text-base font-bold text-slate-900 mt-1">
+                  Format Ekspor e-Rapor Kurikulum Merdeka
+                </h3>
+              </div>
+              <button onClick={() => setShowRaporModal(false)} className="text-slate-400 hover:text-slate-600 font-bold p-1">
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Tabel nilai Kiliko.App telah dipetakan secara otomatis ke kolom <strong>Tujuan Pembelajaran (TP)</strong>, <strong>Asesmen Formatif</strong>, dan <strong>Asesmen Sumatif Lingkup Materi</strong> sesuai standar e-Rapor SMA/SMK Kemendikbudristek.
+            </p>
+
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs space-y-2">
+              <div className="flex justify-between font-semibold text-slate-700">
+                <span>Sekolah: SMAN 1 Kiliko Digital</span>
+                <span>Fase / Kelas: E / X IPA 1</span>
+              </div>
+              <div className="flex justify-between text-slate-500">
+                <span>Semester: 1 (Ganjil) 2026/2027</span>
+                <span>Status: Nilai Siap Diimpor ke Aplikasi e-Rapor</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                onClick={() => setShowRaporModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+              >
+                Tutup
+              </button>
+              <button
+                onClick={() => {
+                  alert('✓ File "Format_Impor_eRapor_X_IPA_1.xlsx" berhasil diunduh!');
+                  setShowRaporModal(false);
+                }}
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-100 flex items-center gap-1.5"
+              >
+                <span>📥 Unduh Template Excel e-Rapor Resmi</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

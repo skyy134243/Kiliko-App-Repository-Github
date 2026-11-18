@@ -1,18 +1,33 @@
-// Core Type Definitions for Kiliko.App
+// Core Type Definitions for Kiliko.App (Updated with Wali Kelas, WA Gateway, & Kurikulum Merdeka)
 
-export type Role = 'SISWA' | 'GURU' | 'BK' | 'TU' | 'KEPALA_SEKOLAH' | 'ADMIN';
+export type Role = 'SISWA' | 'GURU' | 'WALI_KELAS' | 'BK' | 'TU' | 'KEPALA_SEKOLAH' | 'ADMIN';
 
 export type TaskType = 'LKPD_ESAI' | 'PILIHAN_GANDA' | 'PRAKTIKUM' | 'KELOMPOK';
 
 export type TaskCategory = 'TENGGAT' | 'BIASA';
 
-export type SubmissionStatus = 'BELUM_DIKERJAKAN' | 'DIKUMPULKAN' | 'DINILAI';
+export type SubmissionStatus = 'BELUM_DIKERJAKAN' | 'DIKUMPULKAN' | 'DINILAI' | 'REMEDIAL';
 
 export type AttendanceStatus = 'HADIR' | 'DISPEN' | 'IZIN' | 'SAKIT' | 'ALPA';
 
 export type AlertPriority = 'MENDESAK' | 'INFORMASI';
 
 export type FollowUpStatus = 'PENDING' | 'IN_PROGRESS' | 'RESOLVED';
+
+export type WaNotificationType = 'ABSENSI_ALPA' | 'DEADLINE_TENGGAT' | 'SURAT_BEBAS_TUGAS' | 'PEMANGGILAN_ORTU';
+
+export interface WhatsAppLog {
+  id: string;
+  recipientPhone: string;
+  recipientName: string; // Orang Tua / Wali Siswa
+  studentName: string;
+  studentNis: string;
+  className: string;
+  type: WaNotificationType;
+  message: string;
+  sentAt: string;
+  status: 'TERKIRIM' | 'DIBACA' | 'GAGAL';
+}
 
 export interface User {
   id: string;
@@ -23,6 +38,10 @@ export interface User {
   avatarUrl?: string;
   classId?: string;
   className?: string;
+  parentPhone?: string; // Nomor WA Orang Tua
+  parentName?: string;
+  isHomeroomTeacher?: boolean; // Wali Kelas
+  homeroomClassId?: string;
 }
 
 export interface ClassRoom {
@@ -31,6 +50,8 @@ export interface ClassRoom {
   gradeLevel: number;
   academicYear: string;
   semester: number;
+  homeroomTeacherId?: string;
+  homeroomTeacherName?: string;
 }
 
 export interface Subject {
@@ -66,6 +87,10 @@ export interface Assignment {
   teacherName: string;
   attachmentUrl?: string;
   
+  // Aturan Keterlambatan (Late Submission Policy)
+  allowLateSubmission?: boolean;
+  latePenaltyPerDay?: number; // Pengurangan skor per hari
+
   // Pilihan Ganda logic
   isAnswerKeyLocked?: boolean;
   questions?: QuizQuestion[];
@@ -80,9 +105,12 @@ export interface Submission {
   studentNis: string;
   status: SubmissionStatus;
   submittedAt?: string;
+  isLate?: boolean; // Terlambat
   
-  // Answers
+  // Answers & Compressed Photo Telemetry
   photoAnswerUrl?: string; // Foto lembar jawaban LKPD
+  compressedSizeKb?: number; // Ukuran file setelah kompresi
+  originalSizeMb?: number;   // Ukuran asli kamera
   textContent?: string;
   selectedAnswers?: Record<string, string>; // Quiz student answers { questionId: 'A' }
   attachmentUrls?: string[]; // Media Praktikum/Kelompok
@@ -92,11 +120,13 @@ export interface Submission {
   groupName?: string;
   groupMembers?: string[];
 
-  // Grading
+  // Grading & Remedial
   score?: number; // 0 - 100
   teacherFeedback?: string;
   gradedAt?: string;
   gradedById?: string;
+  isRemedial?: boolean;
+  remedialScore?: number;
 }
 
 export interface GradebookEntry {
@@ -113,6 +143,10 @@ export interface GradebookEntry {
   score: number;
   isAutoSynced: boolean;
   syncedAt: string;
+  
+  // Format e-Rapor Kurikulum Merdeka
+  assessmentType?: 'FORMATIF' | 'SUMATIF_LINGKUP_MATERI' | 'SUMATIF_AKHIR_SEMESTER';
+  learningObjective?: string; // Capaian / Tujuan Pembelajaran (TP)
 }
 
 export interface AttendanceRecord {
@@ -148,6 +182,7 @@ export interface BotAttendanceAlert {
   bkNotes?: string;
   resolvedAt?: string;
   resolvedByName?: string;
+  waSentToParent?: boolean;
 }
 
 export interface ClearanceCertificate {

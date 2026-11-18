@@ -14,7 +14,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenClearanceModal,
   onOpenVerification,
 }) => {
-  const { currentUser, botAlerts } = useApp();
+  const { currentUser, botAlerts, waLogs } = useApp();
 
   const pendingAlertsCount = botAlerts.filter((a) => a.followUpStatus === 'PENDING').length;
   const urgentAlertsCount = botAlerts.filter((a) => a.priority === 'MENDESAK' && a.followUpStatus === 'PENDING').length;
@@ -33,7 +33,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 Kiliko<span className="text-indigo-600">.App</span>
               </span>
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200/60 uppercase">
-                v1.0
+                v1.1 EduTech
               </span>
             </div>
             <p className="text-[11px] text-slate-500 hidden sm:block">
@@ -101,6 +101,24 @@ export const Navbar: React.FC<NavbarProps> = ({
             </>
           )}
 
+          {currentUser.role === 'WALI_KELAS' && (
+            <button
+              onClick={() => setActiveTab('walikelas')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition flex items-center gap-2 ${
+                activeTab === 'walikelas'
+                  ? 'bg-emerald-50 text-emerald-700'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <span>📋 Dasbor Kelas X IPA 1</span>
+              {waLogs.length > 0 && (
+                <span className="px-2 py-0.5 text-xs rounded-full font-bold bg-emerald-600 text-white">
+                  {waLogs.length} WA
+                </span>
+              )}
+            </button>
+          )}
+
           {currentUser.role === 'BK' && (
             <button
               onClick={() => setActiveTab('bk-alerts')}
@@ -128,7 +146,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
-              Tabel Nilai Terpadu
+              Tabel Nilai & e-Rapor
             </button>
           )}
 
@@ -158,7 +176,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           )}
 
-          {/* Quick link to test Public QR Verification */}
           <button
             onClick={() => onOpenVerification && onOpenVerification()}
             title="Uji Halaman Verifikasi QR Code Publik"

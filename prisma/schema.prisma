@@ -1,4 +1,4 @@
-// Prisma Schema for Kiliko.App
+// Prisma Schema for Kiliko.App v1.1
 // Platform Digital Tugas, Absensi, dan Nilai Sekolah
 
 generator client {
@@ -13,8 +13,9 @@ datasource db {
 enum Role {
   SISWA
   GURU
+  WALI_KELAS     // Pendamping kelas, pantau ketuntasan & WA ortu
   BK             // Pendamping absensi & penanganan bot
-  TU             // Pendamping nilai & tabel nilai sekolah
+  TU             // Pendamping nilai & tabel nilai sekolah (e-Rapor)
   KEPALA_SEKOLAH // Otorisasi Tanda Tangan Elektronik Surat Bebas Tugas
   ADMIN          // Pengelola teknis
 }
@@ -35,6 +36,7 @@ enum SubmissionStatus {
   BELUM_DIKERJAKAN
   DIKUMPULKAN
   DINILAI
+  REMEDIAL
 }
 
 enum AttendanceStatus {
@@ -56,6 +58,12 @@ enum FollowUpStatus {
   RESOLVED
 }
 
+enum AssessmentType {
+  FORMATIF
+  SUMATIF_LINGKUP_MATERI
+  SUMATIF_AKHIR_SEMESTER
+}
+
 model User {
   id              String         @id @default(uuid())
   email           String         @unique
@@ -64,6 +72,8 @@ model User {
   identifierNumber String?       // NISN untuk Siswa, NIP untuk Guru/Staff
   role            Role           @default(SISWA)
   avatarUrl       String?
+  parentName      String?        // Nama Orang Tua / Wali Siswa
+  parentPhone     String?        // Nomor WhatsApp Orang Tua
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -76,8 +86,9 @@ model User {
   clearanceLetters ClearanceLetter[] @relation("StudentClearances")
   gradebookRecords GradebookRecord[] @relation("StudentGrades")
 
-  // Relasi Guru
+  // Relasi Guru / Wali Kelas
   taughtClasses   ClassTeacher[]
+  homeroomClasses Class[]        @relation("HomeroomTeacher")
   createdTasks    Assignment[]   @relation("TeacherAssignments")
   gradedSubmissions Submission[] @relation("TeacherGradedSubmissions")
   attendanceSessions AttendanceSession[] @relation("TeacherAttendanceSessions")
@@ -92,6 +103,8 @@ model Class {
   gradeLevel      Int            // 10, 11, 12
   academicYear    String         // contoh: "2026/2027"
   semester        Int            // 1 (Ganjil) atau 2 (Genap)
+  homeroomTeacherId String?
+  homeroomTeacher User?          @relation("HomeroomTeacher", fields: [homeroomTeacherId], references: [id])
   students        User[]         @relation("ClassStudents")
   teachers        ClassTeacher[]
   assignments     Assignment[]
@@ -125,11 +138,15 @@ model Assignment {
   type            TaskType       @default(LKPD_ESAI)
   category        TaskCategory   @default(BIASA)
   deadline        DateTime
-  attachmentUrl   String?        // File pendukung / foto soal dari guru
+  attachmentUrl   String?
   
+  // Aturan Keterlambatan
+  allowLateSubmission Boolean    @default(false)
+  latePenaltyPerDay   Int        @default(0)
+
   // Aturan Bisnis Pilihan Ganda: Wajib dikunci sebelum publish
   isAnswerKeyLocked Boolean      @default(false)
-  quizQuestionsJson String?      // JSON data soal, opsi A-E, dan kunci jawaban
+  quizQuestionsJson String?
 
   // Relasi
   classId         String
@@ -154,19 +171,24 @@ model Submission {
   
   status          SubmissionStatus @default(BELUM_DIKERJAKAN)
   submittedAt     DateTime?
+  isLate          Boolean          @default(false)
   
-  // Jawaban
-  photoAnswerUrl  String?          // Foto jawaban fisik untuk LKPD/Esai
+  // Jawaban & Data Kompresi Foto
+  photoAnswerUrl  String?
+  originalSizeMb  Float?
+  compressedSizeKb Float?
   textContent     String?
-  selectedAnswersJson String?      // JSON jawaban siswa untuk Pilihan Ganda
-  attachmentUrlsJson  String?      // Dokumen / Video / Slide untuk Praktikum/Kelompok
+  selectedAnswersJson String?
+  attachmentUrlsJson  String?
   
   // Data Tugas Kelompok
   groupId         String?
-  groupMembersJson String?         // Daftar nama anggota kelompok
+  groupMembersJson String?
 
-  // Penilaian
+  // Penilaian & Remedial
   score           Float?
+  isRemedial      Boolean          @default(false)
+  remedialScore   Float?
   teacherFeedback String?
   gradedAt        DateTime?
   gradedById      String?
@@ -188,6 +210,11 @@ model GradebookRecord {
   assignment      Assignment     @relation(fields: [assignmentId], references: [id])
   score           Float
   isAutoSynced    Boolean        @default(true) // Diinput otomatis oleh bot platform
+  
+  // Format e-Rapor Kurikulum Merdeka
+  assessmentType  AssessmentType @default(FORMATIF)
+  learningObjective String?      // Capaian / Tujuan Pembelajaran (TP)
+  
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -196,8 +223,8 @@ model GradebookRecord {
 
 model AttendanceSession {
   id              String         @id @default(uuid())
-  date            DateTime       // Tanggal absensi (YYYY-MM-DD)
-  periodNumber    Int            // Jam ke-1, Jam ke-2, dll.
+  date            DateTime
+  periodNumber    Int
   classId         String
   class           Class          @relation(fields: [classId], references: [id])
   subjectId       String
@@ -216,7 +243,7 @@ model AttendanceRecord {
   studentId       String
   student         User             @relation("StudentAttendances", fields: [studentId], references: [id])
   status          AttendanceStatus @default(HADIR)
-  reason          String?          // Keterangan/alasan untuk sakit, izin, dispen, alpa
+  reason          String?
   createdAt       DateTime         @default(now())
 
   @@unique([sessionId, studentId])
@@ -224,17 +251,18 @@ model AttendanceRecord {
 
 model BotAttendanceAlert {
   id              String         @id @default(uuid())
-  date            DateTime       // Tanggal kejadian
+  date            DateTime
   studentId       String
   student         User           @relation("StudentAlerts", fields: [studentId], references: [id])
   
-  totalAbsences   Int            // Jumlah mapel tidak hadir (minimal 3)
+  totalAbsences   Int
   alpaCount       Int
-  priority        AlertPriority  // MENDESAK jika ada alpa >= 3, INFORMASI jika sakit/izin/dispen
-  detailsJson     String         // JSON ringkasan mapel, jam, status, dan alasan
+  priority        AlertPriority
+  detailsJson     String
   
   followUpStatus  FollowUpStatus @default(PENDING)
-  bkNotes         String?        // Catatan tindak lanjut guru BK
+  bkNotes         String?
+  waSentToParent  Boolean        @default(false)
   resolvedById    String?
   resolvedBy      User?          @relation("BKHandledAlerts", fields: [resolvedById], references: [id])
   resolvedAt      DateTime?
@@ -243,14 +271,25 @@ model BotAttendanceAlert {
   updatedAt       DateTime       @updatedAt
 }
 
+model WhatsAppNotificationLog {
+  id              String         @id @default(uuid())
+  recipientPhone  String
+  recipientName   String
+  studentName     String
+  type            String         // ABSENSI_ALPA, DEADLINE_TENGGAT, dll.
+  message         String
+  sentAt          DateTime       @default(now())
+  status          String         @default("TERKIRIM")
+}
+
 model ClearanceLetter {
   id                    String    @id @default(uuid())
   studentId             String
   student               User      @relation("StudentClearances", fields: [studentId], references: [id])
-  academicYear          String    // contoh: "2026/2027"
-  semester              Int       // 1 atau 2
-  verificationCode      String    @unique // UUID untuk validasi QR Code publik
-  isEligible            Boolean   @default(true) // Seluruh tugas tenggat tuntas
+  academicYear          String
+  semester              Int
+  verificationCode      String    @unique
+  isEligible            Boolean   @default(true)
   allPendingDoneAt      DateTime  @default(now())
   
   // Tanda Tangan Elektronik (TTE) Kepala Sekolah

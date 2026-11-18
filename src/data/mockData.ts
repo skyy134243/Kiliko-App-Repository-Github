@@ -6,6 +6,7 @@ import {
   Submission,
   AttendanceRecord,
   GradebookEntry,
+  WhatsAppLog,
 } from '../types';
 
 export const INITIAL_USERS: User[] = [
@@ -17,6 +18,8 @@ export const INITIAL_USERS: User[] = [
     role: 'SISWA',
     classId: 'cls-x-ipa-1',
     className: 'X IPA 1',
+    parentName: 'Bpk. Bambang Pratama',
+    parentPhone: '0812-8899-7711',
     avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=120&auto=format&fit=crop&q=80',
   },
   {
@@ -27,6 +30,8 @@ export const INITIAL_USERS: User[] = [
     role: 'SISWA',
     classId: 'cls-x-ipa-1',
     className: 'X IPA 1',
+    parentName: 'Ibu Endang Suryani',
+    parentPhone: '0813-2233-4455',
     avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&auto=format&fit=crop&q=80',
   },
   {
@@ -37,6 +42,8 @@ export const INITIAL_USERS: User[] = [
     role: 'SISWA',
     classId: 'cls-x-ipa-1',
     className: 'X IPA 1',
+    parentName: 'Bpk. Ahmad Rahmawan',
+    parentPhone: '0811-9988-1122',
     avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&auto=format&fit=crop&q=80',
   },
   {
@@ -45,6 +52,18 @@ export const INITIAL_USERS: User[] = [
     email: 'sri.wahyuni@sekolah.sch.id',
     identifierNumber: '198205142005012003',
     role: 'GURU',
+    isHomeroomTeacher: true,
+    homeroomClassId: 'cls-x-ipa-1',
+    avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80',
+  },
+  {
+    id: 'user-walikelas-1',
+    name: 'Ibu Sri Wahyuni, M.Pd (Wali Kelas X IPA 1)',
+    email: 'walikelas.sri@sekolah.sch.id',
+    identifierNumber: '198205142005012003',
+    role: 'WALI_KELAS',
+    isHomeroomTeacher: true,
+    homeroomClassId: 'cls-x-ipa-1',
     avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80',
   },
   {
@@ -90,9 +109,31 @@ export const INITIAL_USERS: User[] = [
 ];
 
 export const INITIAL_CLASSES: ClassRoom[] = [
-  { id: 'cls-x-ipa-1', name: 'X IPA 1', gradeLevel: 10, academicYear: '2026/2027', semester: 1 },
-  { id: 'cls-x-ipa-2', name: 'X IPA 2', gradeLevel: 10, academicYear: '2026/2027', semester: 1 },
-  { id: 'cls-xi-ipa-1', name: 'XI IPA 1', gradeLevel: 11, academicYear: '2026/2027', semester: 1 },
+  {
+    id: 'cls-x-ipa-1',
+    name: 'X IPA 1',
+    gradeLevel: 10,
+    academicYear: '2026/2027',
+    semester: 1,
+    homeroomTeacherId: 'user-guru-1',
+    homeroomTeacherName: 'Ibu Sri Wahyuni, M.Pd',
+  },
+  {
+    id: 'cls-x-ipa-2',
+    name: 'X IPA 2',
+    gradeLevel: 10,
+    academicYear: '2026/2027',
+    semester: 1,
+    homeroomTeacherId: 'user-guru-2',
+    homeroomTeacherName: 'Pak Bambang Irawan, S.Pd',
+  },
+  {
+    id: 'cls-xi-ipa-1',
+    name: 'XI IPA 1',
+    gradeLevel: 11,
+    academicYear: '2026/2027',
+    semester: 1,
+  },
 ];
 
 export const INITIAL_SUBJECTS: Subject[] = [
@@ -117,6 +158,8 @@ export const INITIAL_ASSIGNMENTS: Assignment[] = [
     teacherId: 'user-guru-1',
     teacherName: 'Ibu Sri Wahyuni, M.Pd',
     attachmentUrl: 'https://images.unsplash.com/photo-1636466497217-26a8cbeaf0aa?w=600&auto=format&fit=crop&q=80',
+    allowLateSubmission: true,
+    latePenaltyPerDay: 5,
     createdAt: '2026-11-10T08:00:00',
   },
   {
@@ -133,6 +176,7 @@ export const INITIAL_ASSIGNMENTS: Assignment[] = [
     teacherId: 'user-guru-2',
     teacherName: 'Pak Bambang Irawan, S.Pd',
     isAnswerKeyLocked: true,
+    allowLateSubmission: false,
     questions: [
       {
         id: 'q1',
@@ -215,6 +259,8 @@ export const INITIAL_SUBMISSIONS: Submission[] = [
     status: 'DINILAI',
     submittedAt: '2026-11-14T14:20:00',
     photoAnswerUrl: 'https://images.unsplash.com/photo-1588072432836-e10032774350?w=800&auto=format&fit=crop&q=80',
+    originalSizeMb: 4.8,
+    compressedSizeKb: 312,
     score: 88,
     teacherFeedback: 'Langkah pengerjaan rumus percepatan dan gaya gesek sudah runtut dan tepat. Bagus!',
     gradedAt: '2026-11-15T09:15:00',
@@ -243,7 +289,9 @@ export const INITIAL_SUBMISSIONS: Submission[] = [
     status: 'DIKUMPULKAN',
     submittedAt: '2026-11-16T10:10:00',
     photoAnswerUrl: 'https://images.unsplash.com/photo-1544717305-2782549b5136?w=800&auto=format&fit=crop&q=80',
-    textContent: 'Mohon maaf bu Sri baru bisa mengumpulkan, tulisan lembar kedua sedikit buram tapi masih terbaca.',
+    originalSizeMb: 5.2,
+    compressedSizeKb: 340,
+    textContent: 'Mohon maaf bu Sri baru bisa mengumpulkan, lembar kedua ada di foto kedua.',
   },
   {
     id: 'sub-4',
@@ -279,6 +327,8 @@ export const INITIAL_GRADEBOOK: GradebookEntry[] = [
     taskCategory: 'TENGGAT',
     score: 88,
     isAutoSynced: true,
+    assessmentType: 'FORMATIF',
+    learningObjective: 'TP 10.1: Menganalisis besaran fisika pada gerak lurus dan dinamika gerak',
     syncedAt: '2026-11-15T09:15:00',
   },
   {
@@ -294,6 +344,8 @@ export const INITIAL_GRADEBOOK: GradebookEntry[] = [
     taskCategory: 'TENGGAT',
     score: 100,
     isAutoSynced: true,
+    assessmentType: 'SUMATIF_LINGKUP_MATERI',
+    learningObjective: 'TP 10.2: Mengidentifikasi organel sel dan fungsinya dalam metabolisme',
     syncedAt: '2026-11-15T16:00:05',
   },
   {
@@ -309,6 +361,8 @@ export const INITIAL_GRADEBOOK: GradebookEntry[] = [
     taskCategory: 'TENGGAT',
     score: 92,
     isAutoSynced: true,
+    assessmentType: 'SUMATIF_LINGKUP_MATERI',
+    learningObjective: 'TP 10.3: Menyajikan hasil penelitian sosial tentang dinamika kelompok remaja',
     syncedAt: '2026-11-17T08:30:00',
   },
   {
@@ -324,6 +378,8 @@ export const INITIAL_GRADEBOOK: GradebookEntry[] = [
     taskCategory: 'TENGGAT',
     score: 92,
     isAutoSynced: true,
+    assessmentType: 'SUMATIF_LINGKUP_MATERI',
+    learningObjective: 'TP 10.3: Menyajikan hasil penelitian sosial tentang dinamika kelompok remaja',
     syncedAt: '2026-11-17T08:30:00',
   },
   {
@@ -339,11 +395,12 @@ export const INITIAL_GRADEBOOK: GradebookEntry[] = [
     taskCategory: 'TENGGAT',
     score: 92,
     isAutoSynced: true,
+    assessmentType: 'SUMATIF_LINGKUP_MATERI',
+    learningObjective: 'TP 10.3: Menyajikan hasil penelitian sosial tentang dinamika kelompok remaja',
     syncedAt: '2026-11-17T08:30:00',
   },
 ];
 
-// Simulasi data absensi hari ini yang menunjukkan Budi Santoso tidak hadir di 3 mata pelajaran
 const todayStr = '2026-11-17';
 
 export const INITIAL_ATTENDANCE: AttendanceRecord[] = [
@@ -435,8 +492,35 @@ export const INITIAL_ATTENDANCE: AttendanceRecord[] = [
     classId: 'cls-x-ipa-1',
     studentId: 'user-siswa-2',
     studentName: 'Budi Santoso',
-    status: 'ALPA', // Sudah 3x Alpa hari ini! Memicu Bot Alert MENDESAK ke BK
+    status: 'ALPA',
     reason: 'Belum ada surat pemberitahuan ke wali kelas',
     recordedByTeacherId: 'user-guru-1',
+  },
+];
+
+export const INITIAL_WA_LOGS: WhatsAppLog[] = [
+  {
+    id: 'wa-1',
+    recipientPhone: '0813-2233-4455',
+    recipientName: 'Ibu Endang Suryani',
+    studentName: 'Budi Santoso',
+    studentNis: '20241002',
+    className: 'X IPA 1',
+    type: 'ABSENSI_ALPA',
+    message: '*PEMBERITAHUAN KILIKO.APP — SMAN 1 KILIKO*\nYth. Ibu Endang Suryani, ananda Budi Santoso tercatat tidak hadir pada 3 mapel hari ini (Alpa). Mohon konfirmasi ke pihak sekolah.',
+    sentAt: '2026-11-17T11:45:00',
+    status: 'TERKIRIM',
+  },
+  {
+    id: 'wa-2',
+    recipientPhone: '0813-2233-4455',
+    recipientName: 'Ibu Endang Suryani',
+    studentName: 'Budi Santoso',
+    studentNis: '20241002',
+    className: 'X IPA 1',
+    type: 'DEADLINE_TENGGAT',
+    message: '*PENGINGAT TUGAS TENGGAT*\nYth. Ibu Endang Suryani, mengingatkan ananda Budi Santoso belum menuntaskan Tugas Tenggat: LKPD 04 Pembuktian Hukum II Newton.',
+    sentAt: '2026-11-16T18:00:00',
+    status: 'DIBACA',
   },
 ];

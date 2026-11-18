@@ -8,8 +8,9 @@ export const RoleSwitcherBar: React.FC = () => {
   const roles: { role: Role; label: string; desc: string; icon: string }[] = [
     { role: 'SISWA', label: 'Siswa', desc: 'Tugasku & Surat Bebas Tugas', icon: '🎓' },
     { role: 'GURU', label: 'Guru Mapel', desc: 'Buat Tugas, Koreksi & Absensi', icon: '👩‍🏫' },
+    { role: 'WALI_KELAS', label: 'Wali Kelas', desc: 'Rekap Kelas, Pantau Tugas & WA Ortu', icon: '📋' },
     { role: 'BK', label: 'Guru BK', desc: 'Pendamping Absensi & Bot Alert', icon: '🛡️' },
-    { role: 'TU', label: 'Tata Usaha (TU)', desc: 'Tabel Nilai Otomatis & Rapor', icon: '📊' },
+    { role: 'TU', label: 'Tata Usaha (TU)', desc: 'Tabel Nilai & e-Rapor Merdeka', icon: '📊' },
     { role: 'KEPALA_SEKOLAH', label: 'Kepala Sekolah', desc: 'TTE Surat & Monitoring', icon: '🏛️' },
     { role: 'ADMIN', label: 'Admin (Argha)', desc: 'Pengelola Teknis', icon: '⚙️' },
   ];

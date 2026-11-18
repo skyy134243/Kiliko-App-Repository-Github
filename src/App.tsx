@@ -7,6 +7,7 @@ import { TaskSubmissionModal } from './components/siswa/TaskSubmissionModal';
 import { MultipleChoiceQuizModal } from './components/siswa/MultipleChoiceQuizModal';
 import { SuratBebasTugasModal } from './components/siswa/SuratBebasTugasModal';
 import { GuruDashboardView } from './components/guru/GuruDashboardView';
+import { WaliKelasDashboardView } from './components/walikelas/WaliKelasDashboardView';
 import { BKDashboardView } from './components/bk/BKDashboardView';
 import { TUGradebookView } from './components/tu/TUGradebookView';
 import { KepsekDashboardView } from './components/kepsek/KepsekDashboardView';
@@ -17,7 +18,6 @@ import { Assignment } from './types';
 export const App: React.FC = () => {
   const { currentUser } = useApp();
 
-  // Active navigation tab
   const [activeTab, setActiveTab] = useState<string>('default');
 
   // Modals state
@@ -69,7 +69,7 @@ export const App: React.FC = () => {
               />
             )}
 
-            {/* Role GURU */}
+            {/* Role GURU MAPEL */}
             {currentUser.role === 'GURU' && (
               <GuruDashboardView
                 initialSubTab={
@@ -81,6 +81,9 @@ export const App: React.FC = () => {
                 }
               />
             )}
+
+            {/* Role WALI KELAS */}
+            {currentUser.role === 'WALI_KELAS' && <WaliKelasDashboardView />}
 
             {/* Role BK */}
             {currentUser.role === 'BK' && <BKDashboardView />}
@@ -126,7 +129,7 @@ export const App: React.FC = () => {
             <strong>Kiliko.App</strong> · Platform Digital Tugas, Absensi, dan Nilai Sekolah
           </span>
           <span className="text-slate-400">
-            Disusun oleh Argha (Product Manager) · Versi 1.0 (8 November 2026)
+            Disusun oleh Argha (Product Manager) · Versi 1.1 EduTech Enhancement
           </span>
         </div>
       </footer>

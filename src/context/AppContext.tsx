@@ -7,8 +7,7 @@ import {
   AttendanceRecord,
   BotAttendanceAlert,
   GradebookEntry,
-  TaskType,
-  TaskCategory,
+  WhatsAppLog,
   AttendanceStatus,
 } from '../types';
 import {
@@ -19,9 +18,11 @@ import {
   INITIAL_ATTENDANCE,
   INITIAL_CLASSES,
   INITIAL_SUBJECTS,
+  INITIAL_WA_LOGS,
 } from '../data/mockData';
 import { evaluateDailyAttendance } from '../services/botEngine';
 import { syncSubmissionToGradebook, calculateQuizScore } from '../services/gradingEngine';
+import { createAbsenceWaNotification } from '../services/whatsappGateway';
 
 interface AppContextType {
   currentUser: User;
@@ -34,6 +35,7 @@ interface AppContextType {
   gradebook: GradebookEntry[];
   attendance: AttendanceRecord[];
   botAlerts: BotAttendanceAlert[];
+  waLogs: WhatsAppLog[];
   
   // Actions
   createAssignment: (newAssignment: Omit<Assignment, 'id' | 'createdAt'>) => void;
@@ -41,6 +43,8 @@ interface AppContextType {
     assignmentId: string,
     payload: {
       photoAnswerUrl?: string;
+      originalSizeMb?: number;
+      compressedSizeKb?: number;
       textContent?: string;
       selectedAnswers?: Record<string, string>;
       attachmentUrls?: string[];
@@ -61,13 +65,13 @@ interface AppContextType {
     records: { studentId: string; status: AttendanceStatus; reason?: string }[]
   ) => void;
   resolveBotAlert: (alertId: string, bkNotes: string) => void;
+  sendWhatsAppMessage: (log: WhatsAppLog) => void;
   resetAllData: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Current logged in user (defaults to Siswa Andi Pratama)
   const [currentUser, setCurrentUser] = useState<User>(() => {
     const saved = localStorage.getItem('kiliko_current_user');
     return saved ? JSON.parse(saved) : INITIAL_USERS[0];
@@ -100,11 +104,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [botAlerts, setBotAlerts] = useState<BotAttendanceAlert[]>(() => {
     const saved = localStorage.getItem('kiliko_bot_alerts');
     if (saved) return JSON.parse(saved);
-    // Initial evaluation based on INITIAL_ATTENDANCE
     return evaluateDailyAttendance(INITIAL_ATTENDANCE, []);
   });
 
-  // Local storage synchronizers
+  const [waLogs, setWaLogs] = useState<WhatsAppLog[]>(() => {
+    const saved = localStorage.getItem('kiliko_wa_logs');
+    return saved ? JSON.parse(saved) : INITIAL_WA_LOGS;
+  });
+
   useEffect(() => {
     localStorage.setItem('kiliko_current_user', JSON.stringify(currentUser));
   }, [currentUser]);
@@ -129,13 +136,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('kiliko_bot_alerts', JSON.stringify(botAlerts));
   }, [botAlerts]);
 
-  // Switch role helper
+  useEffect(() => {
+    localStorage.setItem('kiliko_wa_logs', JSON.stringify(waLogs));
+  }, [waLogs]);
+
   const switchRole = (role: Role) => {
     const target = users.find((u) => u.role === role) || users[0];
     setCurrentUser(target);
   };
 
-  // Buat Tugas Baru (Oleh Guru)
+  const sendWhatsAppMessage = (log: WhatsAppLog) => {
+    setWaLogs((prev) => [log, ...prev]);
+  };
+
   const createAssignment = (newAssignment: Omit<Assignment, 'id' | 'createdAt'>) => {
     const task: Assignment = {
       ...newAssignment,
@@ -145,11 +158,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAssignments((prev) => [task, ...prev]);
   };
 
-  // Kumpulkan Tugas (Oleh Siswa)
   const submitAssignment = (
     assignmentId: string,
     payload: {
       photoAnswerUrl?: string;
+      originalSizeMb?: number;
+      compressedSizeKb?: number;
       textContent?: string;
       selectedAnswers?: Record<string, string>;
       attachmentUrls?: string[];
@@ -166,7 +180,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let gradedById: string | undefined = undefined;
     let status: Submission['status'] = 'DIKUMPULKAN';
 
-    // Jika Pilihan Ganda: Auto-Grade langsung!
+    // Auto-Grade Pilihan Ganda
     if (assignment.type === 'PILIHAN_GANDA' && payload.selectedAnswers) {
       initialScore = calculateQuizScore(assignment, payload.selectedAnswers);
       initialFeedback = `Nilai otomatis terhitung oleh Bot: ${initialScore}/100`;
@@ -184,6 +198,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status,
       submittedAt: new Date().toISOString(),
       photoAnswerUrl: payload.photoAnswerUrl,
+      originalSizeMb: payload.originalSizeMb,
+      compressedSizeKb: payload.compressedSizeKb,
       textContent: payload.textContent,
       selectedAnswers: payload.selectedAnswers,
       attachmentUrls: payload.attachmentUrls,
@@ -206,7 +222,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return [newSubmission, ...prev];
     });
 
-    // Jika ada nilai otomatis (kuis PG), sinkronkan ke Gradebook
     if (initialScore !== undefined) {
       setGradebook((prevGb) =>
         syncSubmissionToGradebook(newSubmission, assignment, users, prevGb)
@@ -214,7 +229,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Nilai Jawaban Siswa (Oleh Guru)
   const gradeSubmission = (
     submissionId: string,
     score: number,
@@ -249,7 +263,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Input Absensi Kelas & Pemicu Bot Alert Otomatis
   const recordClassAttendance = (
     date: string,
     periodNumber: number,
@@ -277,12 +290,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updatedAttendance = [...newRecords, ...attendance];
     setAttendance(updatedAttendance);
 
-    // Jalankan bot otomatis absensi untuk mendeteksi ketidakhadiran >= 3 mapel
+    // Bot evaluasi
     const updatedAlerts = evaluateDailyAttendance(updatedAttendance, botAlerts);
     setBotAlerts(updatedAlerts);
+
+    // Otomatis trigger notifikasi WA ke Orang Tua jika ada alert baru
+    updatedAlerts.forEach((alert) => {
+      if (alert.priority === 'MENDESAK' && !alert.waSentToParent) {
+        const student = users.find((u) => u.id === alert.studentId);
+        if (student) {
+          const waMsg = createAbsenceWaNotification(alert, student);
+          sendWhatsAppMessage(waMsg);
+          alert.waSentToParent = true;
+        }
+      }
+    });
   };
 
-  // Tindak Lanjut Bot Alert oleh Guru BK
   const resolveBotAlert = (alertId: string, bkNotes: string) => {
     setBotAlerts((prev) =>
       prev.map((a) => {
@@ -307,6 +331,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setGradebook(INITIAL_GRADEBOOK);
     setAttendance(INITIAL_ATTENDANCE);
     setBotAlerts(evaluateDailyAttendance(INITIAL_ATTENDANCE, []));
+    setWaLogs(INITIAL_WA_LOGS);
     setCurrentUser(INITIAL_USERS[0]);
   };
 
@@ -323,11 +348,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         gradebook,
         attendance,
         botAlerts,
+        waLogs,
         createAssignment,
         submitAssignment,
         gradeSubmission,
         recordClassAttendance,
         resolveBotAlert,
+        sendWhatsAppMessage,
         resetAllData,
       }}
     >

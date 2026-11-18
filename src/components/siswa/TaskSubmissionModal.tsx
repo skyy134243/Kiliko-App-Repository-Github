@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Assignment } from '../../types';
+import { simulateImageCompression, CompressionResult } from '../../services/imageCompressor';
 
 interface TaskSubmissionModalProps {
   assignment: Assignment;
@@ -17,10 +18,15 @@ export const TaskSubmissionModal: React.FC<TaskSubmissionModalProps> = ({
     (s) => s.assignmentId === assignment.id && s.studentId === currentUser.id
   );
 
-  const [photoUrl, setPhotoUrl] = useState(
+  const initialPhoto =
     existingSub?.photoAnswerUrl ||
-      'https://images.unsplash.com/photo-1588072432836-e10032774350?w=800&auto=format&fit=crop&q=80'
+    'https://images.unsplash.com/photo-1588072432836-e10032774350?w=800&auto=format&fit=crop&q=80';
+
+  const [photoUrl, setPhotoUrl] = useState(initialPhoto);
+  const [compressionInfo, setCompressionInfo] = useState<CompressionResult>(() =>
+    simulateImageCompression(initialPhoto)
   );
+
   const [textContent, setTextContent] = useState(existingSub?.textContent || '');
   const [groupName, setGroupName] = useState(existingSub?.groupName || 'Kelompok 1 - Kreatif');
   const [membersInput, setMembersInput] = useState(
@@ -31,6 +37,11 @@ export const TaskSubmissionModal: React.FC<TaskSubmissionModalProps> = ({
   );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handlePhotoChange = (newUrl: string) => {
+    setPhotoUrl(newUrl);
+    setCompressionInfo(simulateImageCompression(newUrl));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,6 +55,8 @@ export const TaskSubmissionModal: React.FC<TaskSubmissionModalProps> = ({
     setTimeout(() => {
       submitAssignment(assignment.id, {
         photoAnswerUrl: assignment.type === 'LKPD_ESAI' ? photoUrl : undefined,
+        originalSizeMb: assignment.type === 'LKPD_ESAI' ? compressionInfo.originalSizeMb : undefined,
+        compressedSizeKb: assignment.type === 'LKPD_ESAI' ? compressionInfo.compressedSizeKb : undefined,
         textContent,
         groupName: assignment.type === 'KELOMPOK' ? groupName : undefined,
         groupMembers: assignment.type === 'KELOMPOK' ? members : undefined,
@@ -88,8 +101,24 @@ export const TaskSubmissionModal: React.FC<TaskSubmissionModalProps> = ({
           {assignment.type === 'LKPD_ESAI' && (
             <div className="space-y-3">
               <label className="block text-xs font-bold text-slate-700">
-                Foto Jawaban Lembar Kerja Fisik (Sesuai PRD 6.1.a):
+                Foto Jawaban Lembar Kerja Fisik (PRD 6.1.a):
               </label>
+
+              {/* Kompresi Foto Otomatis Banner */}
+              <div className="bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 text-emerald-800">
+                  <span className="text-base">⚡</span>
+                  <div>
+                    <span className="font-bold block">Kompresi Klien Otomatis Aktif</span>
+                    <span className="text-[10px] text-emerald-600">
+                      Asli: {compressionInfo.originalSizeMb} MB ➔ Terkompresi: <strong>{compressionInfo.compressedSizeKb} KB</strong> (Hemat {compressionInfo.savingsPercent}% Kuota)
+                    </span>
+                  </div>
+                </div>
+                <span className="text-[10px] bg-emerald-600 text-white font-bold px-2 py-0.5 rounded-full">
+                  Tulisan Tetap Tajam
+                </span>
+              </div>
               
               <div className="border-2 border-dashed border-indigo-200 rounded-xl p-4 text-center bg-indigo-50/30">
                 <img
@@ -101,14 +130,14 @@ export const TaskSubmissionModal: React.FC<TaskSubmissionModalProps> = ({
                   <input
                     type="text"
                     value={photoUrl}
-                    onChange={(e) => setPhotoUrl(e.target.value)}
+                    onChange={(e) => handlePhotoChange(e.target.value)}
                     placeholder="URL Foto Lembar Jawaban (atau simulasi kamera)"
                     className="text-xs w-full px-3 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500"
                   />
                   <button
                     type="button"
                     onClick={() =>
-                      setPhotoUrl(
+                      handlePhotoChange(
                         'https://images.unsplash.com/photo-1544717305-2782549b5136?w=800&auto=format&fit=crop&q=80'
                       )
                     }
@@ -117,9 +146,6 @@ export const TaskSubmissionModal: React.FC<TaskSubmissionModalProps> = ({
                     Ganti Sampel Foto
                   </button>
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1">
-                  *Guru akan mengoreksi foto fisik ini secara manual di dasbor guru Kiliko.
-                </p>
               </div>
 
               <div>
