@@ -71,6 +71,13 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+// Auto-migration check: memastikan data 352 siswa baru termuat otomatis
+const DB_VERSION = 'v1.2-352-students';
+if (typeof window !== 'undefined' && localStorage.getItem('kiliko_db_version') !== DB_VERSION) {
+  localStorage.clear();
+  localStorage.setItem('kiliko_db_version', DB_VERSION);
+}
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User>(() => {
     const saved = localStorage.getItem('kiliko_current_user');
@@ -278,7 +285,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         periodNumber,
         subjectId,
         subjectName: subject.name,
-        classId: student?.classId || 'cls-x-ipa-1',
+        classId: student?.classId || 'cls-x-1',
         studentId: r.studentId,
         studentName: student?.name || 'Siswa',
         status: r.status,
@@ -326,6 +333,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const resetAllData = () => {
     localStorage.clear();
+    localStorage.setItem('kiliko_db_version', DB_VERSION);
     setAssignments(INITIAL_ASSIGNMENTS);
     setSubmissions(INITIAL_SUBMISSIONS);
     setGradebook(INITIAL_GRADEBOOK);
