@@ -1,759 +1,735 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Assignment, TaskCategory, User } from '../../types';
+import { Assignment, TaskType, TaskCategory, AttendanceStatus, QuizQuestion } from '../../types';
+import { simulateAiOcrExtraction } from '../../services/ocrSimulation';
+import { GuruTaskGradeTableView } from './GuruTaskGradeTableView';
 
-export const GuruTaskGradeTableView: React.FC = () => {
+interface GuruDashboardViewProps {
+  initialSubTab?: 'buat-tugas' | 'koreksi' | 'absensi' | 'tabel-nilai';
+}
+
+export const GuruDashboardView: React.FC<GuruDashboardViewProps> = ({
+  initialSubTab = 'buat-tugas',
+}) => {
   const {
     currentUser,
-    classes,
-    subjects,
     assignments,
     submissions,
+    classes,
+    subjects,
     users,
-    directGradeStudent,
+    createAssignment,
+    gradeSubmission,
+    recordClassAttendance,
   } = useApp();
 
-  // Filters
-  const [selectedClassId, setSelectedClassId] = useState<string>(classes[0]?.id || 'cls-x-1');
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string>('ALL');
-  const [categoryFilter, setCategoryFilter] = useState<'ALL' | TaskCategory>('ALL');
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'buat-tugas' | 'koreksi' | 'absensi' | 'tabel-nilai'>(initialSubTab);
 
-  // Quick Grade Modal State
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalStudent, setModalStudent] = useState<User | null>(null);
-  const [modalAssignment, setModalAssignment] = useState<Assignment | null>(null);
-  const [modalScore, setModalScore] = useState<number>(85);
-  const [modalFeedback, setModalFeedback] = useState<string>('Pengerjaan tugas baik dan sesuai instruksi.');
+  // --- FORM STATE: BUAT TUGAS ---
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [selectedSubjectId, setSelectedSubjectId] = useState(subjects[0]?.id || '');
+  const [selectedClassId, setSelectedClassId] = useState(classes[0]?.id || '');
+  const [taskType, setTaskType] = useState<TaskType>('LKPD_ESAI');
+  const [taskCategory, setTaskCategory] = useState<TaskCategory>('TENGGAT');
+  const [deadline, setDeadline] = useState('2026-11-25T23:59');
 
-  // Filter students for the selected class
-  const classStudents = useMemo(() => {
-    return users
-      .filter((u) => u.role === 'SISWA' && u.classId === selectedClassId)
-      .filter((u) => {
-        if (!searchQuery.trim()) return true;
-        const q = searchQuery.toLowerCase();
-        return (
-          u.name.toLowerCase().includes(q) ||
-          u.identifierNumber.toLowerCase().includes(q)
-        );
-      })
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [users, selectedClassId, searchQuery]);
+  // AI OCR state for Multiple Choice
+  const [isExtractingOcr, setIsExtractingOcr] = useState(false);
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
+  const [isAnswerKeyLocked, setIsAnswerKeyLocked] = useState(false);
 
-  // Filter assignments matching class and filters
-  const filteredAssignments = useMemo(() => {
-    return assignments.filter((a) => {
-      // Must match class
-      if (a.classId !== selectedClassId) return false;
-      // Filter by subject
-      if (selectedSubjectId !== 'ALL' && a.subjectId !== selectedSubjectId) return false;
-      // Filter by category (Tenggat / Biasa)
-      if (categoryFilter !== 'ALL' && a.category !== categoryFilter) return false;
-      return true;
-    });
-  }, [assignments, selectedClassId, selectedSubjectId, categoryFilter]);
+  // --- STATE: KOREKSI JAWABAN ---
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState<string>(assignments[0]?.id || '');
+  const [selectedSubId, setSelectedSubId] = useState<string | null>(null);
+  const [inputScore, setInputScore] = useState<number>(85);
+  const [inputFeedback, setInputFeedback] = useState<string>('Jawaban terstruktur rapi dan lengkap.');
 
-  // Fast lookup map: `${assignmentId}_${studentId}` -> submission
-  const submissionMap = useMemo(() => {
-    const map = new Map<string, typeof submissions[0]>();
-    submissions.forEach((sub) => {
-      map.set(`${sub.assignmentId}_${sub.studentId}`, sub);
-    });
-    return map;
-  }, [submissions]);
+  // --- STATE: ABSENSI ---
+  const [attDate, setAttDate] = useState('2026-11-17');
+  const [attPeriod, setAttPeriod] = useState<number>(1);
+  const [attSubjectId, setAttSubjectId] = useState(subjects[0]?.id || '');
+  const [attClassId, setAttClassId] = useState(classes[0]?.id || '');
 
-  // Selected class & subject display info
-  const currentClass = classes.find((c) => c.id === selectedClassId) || classes[0];
+  // Students in selected class
+  const classStudents = users.filter(
+    (u) => u.role === 'SISWA' && (!u.classId || u.classId === attClassId)
+  );
 
-  // Calculate Overall Statistics
-  const stats = useMemo(() => {
-    let totalScoreSum = 0;
-    let totalGradedCount = 0;
-    let studentsPassingAllTenggat = 0;
+  const [studentAttMap, setStudentAttMap] = useState<
+    Record<string, { status: AttendanceStatus; reason: string }>
+  >({});
 
-    const tenggatTasks = filteredAssignments.filter((a) => a.category === 'TENGGAT');
-
-    classStudents.forEach((st) => {
-      let stScoreSum = 0;
-      let stGradedCount = 0;
-      let passedTenggat = true;
-
-      tenggatTasks.forEach((t) => {
-        const sub = submissionMap.get(`${t.id}_${st.id}`);
-        if (!sub || sub.score === undefined || sub.score < 75) {
-          passedTenggat = false;
-        }
-      });
-
-      if (tenggatTasks.length > 0 && passedTenggat) {
-        studentsPassingAllTenggat++;
-      }
-
-      filteredAssignments.forEach((a) => {
-        const sub = submissionMap.get(`${a.id}_${st.id}`);
-        if (sub && sub.score !== undefined) {
-          stScoreSum += sub.score;
-          stGradedCount++;
-          totalScoreSum += sub.score;
-          totalGradedCount++;
-        }
-      });
-    });
-
-    const classAverage =
-      totalGradedCount > 0 ? Math.round((totalScoreSum / totalGradedCount) * 10) / 10 : 0;
-
-    const tenggatPassPercentage =
-      classStudents.length > 0 && tenggatTasks.length > 0
-        ? Math.round((studentsPassingAllTenggat / classStudents.length) * 100)
-        : classStudents.length > 0 && tenggatTasks.length === 0
-        ? 100
-        : 0;
-
-    return {
-      classAverage,
-      totalStudents: classStudents.length,
-      totalAssignments: filteredAssignments.length,
-      tenggatTasksCount: tenggatTasks.length,
-      studentsPassingAllTenggat,
-      tenggatPassPercentage,
-    };
-  }, [classStudents, filteredAssignments, submissionMap]);
-
-  // Open Quick Grade Modal
-  const handleOpenGradeModal = (student: User, assignment: Assignment) => {
-    const existingSub = submissionMap.get(`${assignment.id}_${student.id}`);
-    setModalStudent(student);
-    setModalAssignment(assignment);
-    setModalScore(existingSub?.score !== undefined ? existingSub.score : 85);
-    setModalFeedback(
-      existingSub?.teacherFeedback ||
-        (assignment.category === 'TENGGAT'
-          ? 'Tuntas tugas tenggat kurikulum. Pemahaman materi sangat baik.'
-          : 'Pengerjaan tugas baik dan sesuai instruksi.')
-    );
-    setModalOpen(true);
+  const handleAttStatusChange = (studentId: string, status: AttendanceStatus) => {
+    setStudentAttMap((prev) => ({
+      ...prev,
+      [studentId]: {
+        status,
+        reason: prev[studentId]?.reason || '',
+      },
+    }));
   };
 
-  // Save Modal Score
-  const handleSaveModalGrade = (e: React.FormEvent) => {
+  const handleAttReasonChange = (studentId: string, reason: string) => {
+    setStudentAttMap((prev) => ({
+      ...prev,
+      [studentId]: {
+        status: prev[studentId]?.status || 'HADIR',
+        reason,
+      },
+    }));
+  };
+
+  const handleSaveAttendance = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!modalStudent || !modalAssignment) return;
+    const records = classStudents.map((s) => ({
+      studentId: s.id,
+      status: studentAttMap[s.id]?.status || 'HADIR',
+      reason: studentAttMap[s.id]?.reason || '',
+    }));
 
-    directGradeStudent(
-      modalAssignment.id,
-      modalStudent.id,
-      Number(modalScore),
-      modalFeedback
-    );
-
-    setModalOpen(false);
+    recordClassAttendance(attDate, attPeriod, attSubjectId, records);
+    alert('✓ Absensi berhasil disimpan! Bot absensi telah memeriksa ketidakhadiran siswa.');
   };
 
-  // Export Table to CSV
-  const handleExportCSV = () => {
-    if (classStudents.length === 0) {
-      alert('Tidak ada data siswa untuk diexport!');
-      return;
+  // Trigger AI OCR extraction for MC
+  const handleAiExtract = async () => {
+    setIsExtractingOcr(true);
+    try {
+      const extracted = await simulateAiOcrExtraction();
+      setQuizQuestions(extracted);
+      setIsAnswerKeyLocked(false);
+    } finally {
+      setIsExtractingOcr(false);
+    }
+  };
+
+  // Submit Buat Tugas
+  const handleCreateTask = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Aturan Bisnis 3: Tugas pilihan ganda tidak dapat dipublikasikan sebelum guru mengunci kunci jawaban.
+    if (taskType === 'PILIHAN_GANDA') {
+      if (quizQuestions.length === 0) {
+        alert('Harap masukkan soal pilihan ganda atau gunakan tombol "Extract Soal via AI"!');
+        return;
+      }
+      if (!isAnswerKeyLocked) {
+        alert('Aturan Bisnis: Tugas Pilihan Ganda WAJIB dikunci kunci jawabannya sebelum dipublikasikan!');
+        return;
+      }
     }
 
-    // CSV Header
-    const headers = [
-      'No',
-      'NISN',
-      'Nama Siswa',
-      'Kelas',
-      ...filteredAssignments.map((a) => `"${a.title} (${a.category})"`),
-      'Rata-Rata',
-      'Status Ketuntasan',
-    ];
+    const sub = subjects.find((s) => s.id === selectedSubjectId) || subjects[0];
+    const cls = classes.find((c) => c.id === selectedClassId) || classes[0];
 
-    // CSV Rows
-    const rows = classStudents.map((st, idx) => {
-      let sum = 0;
-      let count = 0;
-      let allTenggatPassed = true;
-
-      const taskScores = filteredAssignments.map((a) => {
-        const sub = submissionMap.get(`${a.id}_${st.id}`);
-        if (sub && sub.score !== undefined) {
-          sum += sub.score;
-          count++;
-          if (a.category === 'TENGGAT' && sub.score < 75) allTenggatPassed = false;
-          return sub.score;
-        } else {
-          if (a.category === 'TENGGAT') allTenggatPassed = false;
-          return sub ? 'Menunggu Koreksi' : 'Belum Kumpul';
-        }
-      });
-
-      const avg = count > 0 ? (sum / count).toFixed(1) : '-';
-      const status = allTenggatPassed ? 'Tuntas (Bebas Tugas)' : 'Belum Tuntas';
-
-      return [
-        idx + 1,
-        st.identifierNumber,
-        `"${st.name}"`,
-        `"${currentClass?.name || 'Kelas'}"`,
-        ...taskScores,
-        avg,
-        `"${status}"`,
-      ].join(',');
+    createAssignment({
+      title,
+      description,
+      subjectId: sub.id,
+      subjectName: sub.name,
+      classId: cls.id,
+      className: cls.name,
+      teacherId: currentUser.id,
+      teacherName: currentUser.name,
+      type: taskType,
+      category: taskCategory,
+      deadline,
+      isAnswerKeyLocked: taskType === 'PILIHAN_GANDA' ? isAnswerKeyLocked : undefined,
+      questions: taskType === 'PILIHAN_GANDA' ? quizQuestions : undefined,
     });
 
-    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute(
-      'download',
-      `Tabel_Nilai_Tugas_${currentClass?.name || 'Kelas'}_${new Date().toISOString().slice(0, 10)}.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    alert('✓ Tugas berhasil dipublikasikan ke siswa!');
+    setTitle('');
+    setDescription('');
+    setQuizQuestions([]);
+    setIsAnswerKeyLocked(false);
+    setActiveTab('koreksi');
+  };
+
+  // Submissions for currently selected assignment
+  const currentAssignment = assignments.find((a) => a.id === selectedAssignmentId) || assignments[0];
+  const currentSubmissions = submissions.filter((s) => s.assignmentId === currentAssignment?.id);
+  const activeSubmission = currentSubmissions.find((s) => s.id === selectedSubId) || currentSubmissions[0];
+
+  const handleSaveGrade = () => {
+    if (!activeSubmission) return;
+    gradeSubmission(activeSubmission.id, inputScore, inputFeedback);
+    alert('✓ Nilai berhasil disimpan dan langsung masuk ke tabel nilai kelas!');
   };
 
   return (
     <div className="space-y-6">
-      {/* Top Header Card */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-2xl">??</span>
-            <h1 className="text-xl font-bold text-slate-900">
-              Tabel Rekapitulasi Nilai Tugas Siswa
-            </h1>
-            <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-              Dasbor Guru
-            </span>
-          </div>
-          <p className="text-xs text-slate-500">
-            Matriks nama tugas dan nilai perolehan seluruh murid. Terintegrasi langsung dengan koreksi LKPD, Kuis AI, Praktikum, dan Tugas Kelompok.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <button
-            onClick={handleExportCSV}
-            className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5"
-            title="Download CSV untuk dibuka di Microsoft Excel"
-          >
-            <span>??</span>
-            <span>Export ke Excel / CSV</span>
-          </button>
-
-          <button
-            onClick={() => window.print()}
-            className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5"
-            title="Cetak format cetak tabel nilai"
-          >
-            <span>???</span>
-            <span>Cetak Rekap</span>
-          </button>
-        </div>
+      {/* Tab Selector */}
+      <div className="flex border-b border-slate-200 gap-6">
+        <button
+          onClick={() => setActiveTab('buat-tugas')}
+          className={`pb-3 text-sm font-bold border-b-2 transition ${
+            activeTab === 'buat-tugas'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          ➕ Buat Tugas Baru
+        </button>
+        <button
+          onClick={() => setActiveTab('koreksi')}
+          className={`pb-3 text-sm font-bold border-b-2 transition ${
+            activeTab === 'koreksi'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          📑 Riwayat & Koreksi Tugas
+        </button>
+        <button
+          onClick={() => setActiveTab('absensi')}
+          className={`pb-3 text-sm font-bold border-b-2 transition ${
+            activeTab === 'absensi'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          📅 Input Absensi Kelas
+        </button>
+        <button
+          onClick={() => setActiveTab('tabel-nilai')}
+          className={`pb-3 text-sm font-bold border-b-2 transition ${
+            activeTab === 'tabel-nilai'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          📊 Tabel Nilai Tugas
+        </button>
       </div>
 
-      {/* KPI Statistic Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-          <span className="text-[11px] font-bold text-slate-500 uppercase block mb-1">
-            ?? Siswa di Kelas
-          </span>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-black text-slate-900">{stats.totalStudents}</span>
-            <span className="text-xs text-slate-500">murid ({currentClass?.name})</span>
+      {/* TAB 1: BUAT TUGAS */}
+      {activeTab === 'buat-tugas' && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs max-w-3xl">
+          <div className="mb-6">
+            <h2 className="text-lg font-bold text-slate-900">Buat Tugas Baru untuk Kelas</h2>
+            <p className="text-xs text-slate-500">
+              Sesuai PRD Poin 5.1 & 6.1: Tentukan 4 jenis tugas dan kategori tugas (Tenggat / Biasa).
+            </p>
           </div>
-        </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-          <span className="text-[11px] font-bold text-slate-500 uppercase block mb-1">
-            ?? Tugas Aktif
-          </span>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-black text-indigo-600">{stats.totalAssignments}</span>
-            <span className="text-xs text-slate-500">({stats.tenggatTasksCount} Tugas Tenggat)</span>
-          </div>
-        </div>
+          <form onSubmit={handleCreateTask} className="space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Mata Pelajaran:</label>
+                <select
+                  value={selectedSubjectId}
+                  onChange={(e) => setSelectedSubjectId(e.target.value)}
+                  className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white"
+                >
+                  {subjects.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-          <span className="text-[11px] font-bold text-slate-500 uppercase block mb-1">
-            ?? Rata-Rata Kelas
-          </span>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-black text-emerald-600">
-              {stats.classAverage > 0 ? stats.classAverage : '-'}
-            </span>
-            <span className="text-xs text-slate-500">/ 100</span>
-          </div>
-        </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Kelas Tujuan:</label>
+                <select
+                  value={selectedClassId}
+                  onChange={(e) => setSelectedClassId(e.target.value)}
+                  className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white"
+                >
+                  {classes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} (T.A. {c.academicYear})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-          <span className="text-[11px] font-bold text-slate-500 uppercase block mb-1">
-            ?? Ketuntasan Tugas Tenggat
-          </span>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-black text-purple-600">{stats.tenggatPassPercentage}%</span>
-            <span className="text-xs text-slate-500">
-              ({stats.studentsPassingAllTenggat}/{stats.totalStudents} Siswa)
-            </span>
-          </div>
-        </div>
-      </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Judul Tugas:</label>
+              <input
+                type="text"
+                required
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Contoh: LKPD 05 - Pembiasan Cahaya Pada Lensa"
+                className="w-full text-xs p-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
 
-      {/* Filter and Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs flex flex-wrap items-center gap-3">
-        {/* Class Filter */}
-        <div>
-          <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Pilih Kelas:</label>
-          <select
-            value={selectedClassId}
-            onChange={(e) => setSelectedClassId(e.target.value)}
-            className="text-xs font-semibold p-2 rounded-lg border border-slate-300 bg-white hover:border-slate-400 focus:ring-2 focus:ring-indigo-500/20"
-          >
-            {classes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} ({users.filter((u) => u.role === 'SISWA' && u.classId === c.id).length} Siswa)
-              </option>
-            ))}
-          </select>
-        </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Petunjuk & Deskripsi Tugas:</label>
+              <textarea
+                required
+                rows={3}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Tuliskan petunjuk pengerjaan soal secara rinci..."
+                className="w-full text-xs p-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
 
-        {/* Subject Filter */}
-        <div>
-          <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Mata Pelajaran:</label>
-          <select
-            value={selectedSubjectId}
-            onChange={(e) => setSelectedSubjectId(e.target.value)}
-            className="text-xs font-semibold p-2 rounded-lg border border-slate-300 bg-white hover:border-slate-400"
-          >
-            <option value="ALL">Semua Mata Pelajaran</option>
-            {subjects.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name} ({s.code})
-              </option>
-            ))}
-          </select>
-        </div>
+            {/* Jenis & Kategori Tugas Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  1. Jenis Tugas (4 Pilihan PRD 6.1):
+                </label>
+                <select
+                  value={taskType}
+                  onChange={(e) => setTaskType(e.target.value as TaskType)}
+                  className="w-full text-xs p-2.5 rounded-lg border border-indigo-200 bg-indigo-50/50 font-bold text-indigo-900"
+                >
+                  <option value="LKPD_ESAI">📝 LKPD / Esai (Foto Jawaban Fisik)</option>
+                  <option value="PILIHAN_GANDA">⚡ Pilihan Ganda (Auto-Grade + AI OCR)</option>
+                  <option value="PRAKTIKUM">🔬 Praktikum</option>
+                  <option value="KELOMPOK">👥 Tugas Kelompok (Folder Kolektif)</option>
+                </select>
+              </div>
 
-        {/* Category Filter */}
-        <div>
-          <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Kategori Tugas:</label>
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value as any)}
-            className="text-xs font-semibold p-2 rounded-lg border border-slate-300 bg-white hover:border-slate-400"
-          >
-            <option value="ALL">Semua Kategori (Tenggat & Biasa)</option>
-            <option value="TENGGAT">Tugas Tenggat (Syarat Bebas Tugas)</option>
-            <option value="BIASA">Tugas Biasa (Pengayaan Rapor)</option>
-          </select>
-        </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  2. Kategori Tugas (PRD 6.2):
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTaskCategory('TENGGAT')}
+                    className={`flex-1 p-2 rounded-lg border text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                      taskCategory === 'TENGGAT'
+                        ? 'bg-rose-50 border-rose-300 text-rose-700 shadow-xs'
+                        : 'bg-white border-slate-200 text-slate-500'
+                    }`}
+                  >
+                    <span>🔴</span>
+                    <span>Tugas Tenggat (Syarat Bebas Tugas)</span>
+                  </button>
 
-        {/* Student Search */}
-        <div className="flex-1 min-w-[200px]">
-          <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Cari Murid:</label>
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Ketik Nama Siswa atau NISN..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full text-xs p-2 pl-8 rounded-lg border border-slate-300 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-            />
-            <span className="absolute left-2.5 top-2 text-slate-400 text-xs">??</span>
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                  <button
+                    type="button"
+                    onClick={() => setTaskCategory('BIASA')}
+                    className={`flex-1 p-2 rounded-lg border text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                      taskCategory === 'BIASA'
+                        ? 'bg-slate-100 border-slate-300 text-slate-800 shadow-xs'
+                        : 'bg-white border-slate-200 text-slate-500'
+                    }`}
+                  >
+                    <span>⚪</span>
+                    <span>Tugas Biasa</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Batas Waktu Tenggat (Deadline):</label>
+              <input
+                type="datetime-local"
+                required
+                value={deadline}
+                onChange={(e) => setDeadline(e.target.value)}
+                className="w-full text-xs p-2.5 rounded-lg border border-slate-300"
+              />
+            </div>
+
+            {/* Khusus PILIHAN GANDA: AI OCR & KUNCI JAWABAN */}
+            {taskType === 'PILIHAN_GANDA' && (
+              <div className="bg-purple-50/70 border border-purple-200 rounded-xl p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-purple-900 block">
+                      Konfigurasi Soal Pilihan Ganda & AI OCR (PRD 6.1.b)
+                    </span>
+                    <span className="text-[11px] text-purple-700">
+                      Foto soal dari buku diubah menjadi form interaktif berbasis AI.
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={isExtractingOcr}
+                    onClick={handleAiExtract}
+                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1"
+                  >
+                    <span>📷</span>
+                    <span>{isExtractingOcr ? 'Memproses AI...' : 'Simulasi Foto Buku & Extract AI'}</span>
+                  </button>
+                </div>
+
+                {quizQuestions.length > 0 && (
+                  <div className="space-y-3 pt-2 border-t border-purple-200">
+                    <span className="text-xs font-bold text-slate-700 block">
+                      Hasil Ekstraksi Soal ({quizQuestions.length} butir):
+                    </span>
+
+                    {quizQuestions.map((q, idx) => (
+                      <div key={q.id} className="bg-white p-3 rounded-lg border border-slate-200 text-xs space-y-2">
+                        <p className="font-semibold text-slate-800">
+                          {idx + 1}. {q.questionText}
+                        </p>
+                        <div className="grid grid-cols-2 gap-1.5 text-slate-600 text-[11px]">
+                          {q.options.map((opt) => (
+                            <span
+                              key={opt.key}
+                              className={`p-1 rounded ${
+                                opt.key === q.correctKey ? 'bg-emerald-100 font-bold text-emerald-800' : ''
+                              }`}
+                            >
+                              <strong>{opt.key}.</strong> {opt.text}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Aturan Bisnis 3: Kunci Kunci Jawaban */}
+                    <div className="p-3 bg-white rounded-xl border border-purple-200 flex items-center justify-between">
+                      <div className="text-xs text-slate-700">
+                        <strong className="block text-slate-900">Aturan Bisnis PRD Poin 7.3:</strong>
+                        Tugas pilihan ganda tidak dapat dipublikasikan sebelum guru mengunci kunci jawaban.
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsAnswerKeyLocked(!isAnswerKeyLocked)}
+                        className={`px-4 py-2 rounded-lg text-xs font-bold shadow-xs transition flex items-center gap-1.5 ${
+                          isAnswerKeyLocked
+                            ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                            : 'bg-amber-500 text-white hover:bg-amber-600 animate-pulse'
+                        }`}
+                      >
+                        <span>{isAnswerKeyLocked ? '🔒 Kunci Jawaban Terkunci' : '🔓 Kunci Jawaban Sekarang'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition"
+            >
+              🚀 Publikasikan Tugas ke Siswa
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* TAB 2: RIWAYAT & KOREKSI TUGAS */}
+      {activeTab === 'koreksi' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* List Tugas & Siswa */}
+          <div className="lg:col-span-1 space-y-4">
+            <div className="bg-white p-4 rounded-xl border border-slate-200">
+              <label className="block text-xs font-bold text-slate-700 mb-1">Pilih Tugas:</label>
+              <select
+                value={selectedAssignmentId}
+                onChange={(e) => {
+                  setSelectedAssignmentId(e.target.value);
+                  setSelectedSubId(null);
+                }}
+                className="w-full text-xs p-2 rounded-lg border border-slate-300"
               >
-                ?
-              </button>
+                {assignments.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    [{a.type}] {a.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-slate-200">
+              <span className="text-xs font-bold text-slate-700 block mb-2">
+                Daftar Pengumpulan ({currentSubmissions.length}):
+              </span>
+
+              {currentSubmissions.length === 0 ? (
+                <p className="text-xs text-slate-400 italic">Belum ada siswa yang mengumpulkan tugas ini.</p>
+              ) : (
+                <div className="space-y-2">
+                  {currentSubmissions.map((s) => {
+                    const isSelected = activeSubmission?.id === s.id;
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() => {
+                          setSelectedSubId(s.id);
+                          if (s.score) setInputScore(s.score);
+                          if (s.teacherFeedback) setInputFeedback(s.teacherFeedback);
+                        }}
+                        className={`w-full text-left p-3 rounded-lg border text-xs transition flex items-center justify-between ${
+                          isSelected
+                            ? 'bg-indigo-50 border-indigo-400 text-indigo-900 font-bold'
+                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div>
+                          <p className="font-semibold">{s.studentName}</p>
+                          <span className="text-[10px] text-slate-400">NIS: {s.studentNis}</span>
+                        </div>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            s.status === 'DINILAI'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}
+                        >
+                          {s.status === 'DINILAI' ? `Nilai: ${s.score}` : 'Belum Dinilai'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Kolom Koreksi: Foto & Input Nilai di bawah foto (PRD 5.4) */}
+          <div className="lg:col-span-2">
+            {activeSubmission ? (
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-base">{activeSubmission.studentName}</h3>
+                    <span className="text-xs text-slate-500">
+                      Tugas: {currentAssignment?.title} · Status: {activeSubmission.status}
+                    </span>
+                  </div>
+                  {activeSubmission.submittedAt && (
+                    <span className="text-[11px] text-slate-400">
+                      Dikumpulkan: {new Date(activeSubmission.submittedAt).toLocaleString('id-ID')}
+                    </span>
+                  )}
+                </div>
+
+                {/* Tampilan Foto Jawaban Fisik Siswa */}
+                {activeSubmission.photoAnswerUrl ? (
+                  <div className="space-y-1">
+                    <span className="text-xs font-bold text-slate-700 block">
+                      📷 Foto Jawaban Fisik Lembar Kerja Siswa (PRD 5.4):
+                    </span>
+                    <div className="bg-slate-900 rounded-xl overflow-hidden p-2 text-center">
+                      <img
+                        src={activeSubmission.photoAnswerUrl}
+                        alt="Foto Jawaban Siswa"
+                        className="max-h-96 mx-auto rounded-lg object-contain"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-slate-50 rounded-xl text-xs text-slate-600">
+                    <span className="font-bold block mb-1">Catatan Pengumpulan:</span>
+                    {activeSubmission.textContent || 'Tidak ada teks/foto langsung.'}
+                  </div>
+                )}
+
+                {/* Input Nilai di bawah foto (PRD Poin 5.4) */}
+                <div className="bg-indigo-50/50 p-4 rounded-xl border border-indigo-100 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-indigo-950">
+                      Kolom Penilaian Guru (Otomatis Masuk ke Tabel Nilai):
+                    </span>
+                    <span className="text-xs font-semibold text-indigo-700">Skala 0 - 100</span>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <div className="w-32">
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Nilai:</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={inputScore}
+                        onChange={(e) => setInputScore(Number(e.target.value))}
+                        className="w-full text-lg font-black text-center p-2 rounded-lg border border-indigo-300 bg-white"
+                      />
+                    </div>
+
+                    <div className="flex-1">
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Catatan / Feedback untuk Siswa:
+                      </label>
+                      <input
+                        type="text"
+                        value={inputFeedback}
+                        onChange={(e) => setInputFeedback(e.target.value)}
+                        placeholder="Catatan koreksi guru..."
+                        className="w-full text-xs p-2.5 rounded-lg border border-slate-300 bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleSaveGrade}
+                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition"
+                  >
+                    💾 Simpan Nilai & Sinkronkan Otomatis ke Tabel Nilai Kelas
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white p-12 rounded-2xl border border-dashed border-slate-300 text-center text-slate-400">
+                Pilih pengumpulan siswa di sisi kiri untuk mulai memeriksa jawaban.
+              </div>
             )}
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Main Grade Matrix Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        {filteredAssignments.length === 0 ? (
-          <div className="p-12 text-center">
-            <span className="text-4xl block mb-2">??</span>
-            <h3 className="text-sm font-bold text-slate-800 mb-1">Belum Ada Tugas untuk Kelas Ini</h3>
-            <p className="text-xs text-slate-500 max-w-md mx-auto">
-              Tidak ada tugas yang sesuai dengan filter kelas atau mata pelajaran saat ini. Silakan buat tugas baru melalui tab "Buat Tugas".
-            </p>
+      {/* TAB 3: INPUT ABSENSI KELAS */}
+      {activeTab === 'absensi' && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs max-w-4xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-100">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Input Absensi Sesi Kelas</h2>
+              <p className="text-xs text-slate-500">
+                Sesuai PRD Poin 5 (Alur Absensi) & 6.4: Centang kehadiran per jam pelajaran. Bot otomatis melaporkan siswa yang tidak hadir di ≥3 mapel ke BK.
+              </p>
+            </div>
           </div>
-        ) : classStudents.length === 0 ? (
-          <div className="p-12 text-center">
-            <span className="text-4xl block mb-2">??</span>
-            <h3 className="text-sm font-bold text-slate-800 mb-1">Tidak Ada Murid Ditemukan</h3>
-            <p className="text-xs text-slate-500">
-              Tidak ada siswa yang cocok dengan pencarian "{searchQuery}" di kelas {currentClass?.name}.
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              {/* Table Header */}
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
-                <tr>
-                  <th className="p-3.5 font-bold w-12 text-center border-r border-slate-200 bg-slate-50 sticky left-0 z-10">
-                    No
-                  </th>
-                  <th className="p-3.5 font-bold w-28 border-r border-slate-200 bg-slate-50 sticky left-12 z-10">
-                    NISN
-                  </th>
-                  <th className="p-3.5 font-bold min-w-[200px] border-r border-slate-200 bg-slate-50 sticky left-40 z-10">
-                    Nama Murid
-                  </th>
 
-                  {/* Task Columns Header */}
-                  {filteredAssignments.map((task) => (
-                    <th
-                      key={task.id}
-                      className="p-3 border-r border-slate-200 min-w-[170px] max-w-[220px] bg-slate-50/80 align-top"
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span
-                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${
-                              task.category === 'TENGGAT'
-                                ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                                : 'bg-slate-200 text-slate-700'
-                            }`}
-                          >
-                            {task.category}
-                          </span>
-                          <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700">
-                            {task.type.replace('_', ' ')}
-                          </span>
-                        </div>
-                        <div
-                          className="font-bold text-slate-900 text-xs leading-snug line-clamp-2"
-                          title={task.title}
-                        >
-                          {task.title}
-                        </div>
-                        <div className="text-[10px] text-slate-400 flex items-center justify-between">
-                          <span>KKM: 75</span>
-                          <span>{task.subjectName}</span>
-                        </div>
-                      </div>
-                    </th>
-                  ))}
-
-                  <th className="p-3.5 font-bold w-24 text-center border-r border-slate-200 bg-slate-50">
-                    Rata-Rata
-                  </th>
-                  <th className="p-3.5 font-bold w-32 text-center bg-slate-50">
-                    Ketuntasan
-                  </th>
-                </tr>
-              </thead>
-
-              {/* Table Body */}
-              <tbody className="divide-y divide-slate-100">
-                {classStudents.map((student, idx) => {
-                  let studentScoreSum = 0;
-                  let studentGradedCount = 0;
-                  let allTenggatPassed = true;
-
-                  const tenggatTasks = filteredAssignments.filter((a) => a.category === 'TENGGAT');
-
-                  tenggatTasks.forEach((t) => {
-                    const sub = submissionMap.get(`${t.id}_${student.id}`);
-                    if (!sub || sub.score === undefined || sub.score < 75) {
-                      allTenggatPassed = false;
-                    }
-                  });
-
-                  return (
-                    <tr
-                      key={student.id}
-                      className="hover:bg-slate-50/80 transition group"
-                    >
-                      {/* No */}
-                      <td className="p-3 text-center font-medium text-slate-500 border-r border-slate-100 bg-white group-hover:bg-slate-50 sticky left-0 z-10">
-                        {idx + 1}
-                      </td>
-
-                      {/* NISN */}
-                      <td className="p-3 font-mono text-[11px] text-slate-600 border-r border-slate-100 bg-white group-hover:bg-slate-50 sticky left-12 z-10">
-                        {student.identifierNumber}
-                      </td>
-
-                      {/* Nama Murid */}
-                      <td className="p-3 border-r border-slate-100 bg-white group-hover:bg-slate-50 sticky left-40 z-10">
-                        <div className="font-bold text-slate-900">{student.name}</div>
-                        <div className="text-[10px] text-slate-400">
-                          {student.parentPhone ? `WA Ortu: ${student.parentPhone}` : 'SMAN 1 Kandangan'}
-                        </div>
-                      </td>
-
-                      {/* Dynamic Assignment Columns */}
-                      {filteredAssignments.map((task) => {
-                        const sub = submissionMap.get(`${task.id}_${student.id}`);
-                        const hasScore = sub && sub.score !== undefined;
-
-                        if (hasScore) {
-                          studentScoreSum += sub!.score!;
-                          studentGradedCount++;
-                        }
-
-                        return (
-                          <td
-                            key={task.id}
-                            className="p-2.5 text-center border-r border-slate-100"
-                          >
-                            {hasScore ? (
-                              <button
-                                onClick={() => handleOpenGradeModal(student, task)}
-                                className={`w-full py-1.5 px-2 rounded-lg border text-xs font-bold transition flex items-center justify-center gap-1.5 hover:shadow-xs ${
-                                  sub!.score! >= 85
-                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
-                                    : sub!.score! >= 75
-                                    ? 'bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100'
-                                    : 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100'
-                                }`}
-                                title={`Nilai: ${sub!.score!}. Klik untuk edit nilai.`}
-                              >
-                                <span>{sub!.score}</span>
-                                <span className="text-[10px] opacity-60">?</span>
-                              </button>
-                            ) : sub && sub.status === 'DIKUMPULKAN' ? (
-                              <button
-                                onClick={() => handleOpenGradeModal(student, task)}
-                                className="w-full py-1.5 px-2 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 text-[11px] font-semibold transition"
-                                title="Jawaban sudah masuk. Klik untuk koreksi & beri nilai."
-                              >
-                                ? Koreksi
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => handleOpenGradeModal(student, task)}
-                                className="w-full py-1.5 px-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border border-transparent hover:border-indigo-200 text-xs font-medium transition"
-                                title="Belum ada nilai. Klik untuk input nilai langsung."
-                              >
-                                -
-                              </button>
-                            )}
-                          </td>
-                        );
-                      })}
-
-                      {/* Student Average */}
-                      <td className="p-3 text-center font-bold text-slate-800 border-r border-slate-100">
-                        {studentGradedCount > 0 ? (
-                          <span
-                            className={`px-2 py-1 rounded-md text-xs font-extrabold ${
-                              studentScoreSum / studentGradedCount >= 75
-                                ? 'bg-slate-100 text-slate-800'
-                                : 'bg-rose-50 text-rose-700'
-                            }`}
-                          >
-                            {(studentScoreSum / studentGradedCount).toFixed(1)}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400">-</span>
-                        )}
-                      </td>
-
-                      {/* Clearance Status */}
-                      <td className="p-3 text-center">
-                        {tenggatTasks.length === 0 ? (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">
-                            Tidak Ada Tenggat
-                          </span>
-                        ) : allTenggatPassed ? (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                            ? Bebas Tugas
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                            ? Belum Tuntas
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-
-              {/* Table Footer: Column Averages */}
-              <tfoot className="bg-slate-100/80 font-bold text-slate-700 border-t-2 border-slate-300">
-                <tr>
-                  <td
-                    colSpan={3}
-                    className="p-3 text-right text-xs uppercase tracking-wider text-slate-600 sticky left-0 z-10 bg-slate-100"
-                  >
-                    Rata-Rata Nilai Tugas Kelas:
-                  </td>
-
-                  {filteredAssignments.map((task) => {
-                    let taskScoreSum = 0;
-                    let taskGradedCount = 0;
-
-                    classStudents.forEach((st) => {
-                      const sub = submissionMap.get(`${task.id}_${st.id}`);
-                      if (sub && sub.score !== undefined) {
-                        taskScoreSum += sub.score;
-                        taskGradedCount++;
-                      }
-                    });
-
-                    const taskAvg =
-                      taskGradedCount > 0 ? (taskScoreSum / taskGradedCount).toFixed(1) : '-';
-
-                    return (
-                      <td key={task.id} className="p-2.5 text-center text-xs">
-                        <div className="font-extrabold text-indigo-700">{taskAvg}</div>
-                        <div className="text-[10px] font-normal text-slate-500">
-                          {taskGradedCount}/{classStudents.length} dinilai
-                        </div>
-                      </td>
-                    );
-                  })}
-
-                  <td className="p-3 text-center text-xs font-black text-slate-900">
-                    {stats.classAverage > 0 ? stats.classAverage : '-'}
-                  </td>
-                  <td className="p-3 text-center text-[10px] text-slate-500">
-                    {stats.studentsPassingAllTenggat}/{classStudents.length} Tuntas
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Legend / Info Footer */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 text-xs text-slate-600 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-4 flex-wrap">
-          <span className="font-bold text-slate-700">Keterangan Warna Nilai:</span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded bg-emerald-500 inline-block"></span>
-            <span>? 85 (Sangat Baik)</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded bg-blue-500 inline-block"></span>
-            <span>75 - 84 (Tuntas / KKM)</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded bg-rose-500 inline-block"></span>
-            <span>&lt; 75 (Di Bawah KKM / Remedial)</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded bg-amber-400 inline-block"></span>
-            <span>Menunggu Koreksi Guru</span>
-          </span>
-        </div>
-
-        <div className="text-slate-400 text-[11px]">
-          * Klik pada kotak nilai untuk mengedit atau menginput nilai secara langsung.
-        </div>
-      </div>
-
-      {/* Quick Grade Modal */}
-      {modalOpen && modalStudent && modalAssignment && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 animate-in fade-in zoom-in-95">
-            <div className="flex items-start justify-between pb-4 border-b border-slate-200">
+          <form onSubmit={handleSaveAttendance} className="space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 block">
-                  Input / Edit Nilai Siswa
-                </span>
-                <h3 className="text-base font-bold text-slate-900">{modalStudent.name}</h3>
-                <p className="text-xs text-slate-500">
-                  NISN: {modalStudent.identifierNumber} . Kelas: {currentClass?.name}
-                </p>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Tanggal:</label>
+                <input
+                  type="date"
+                  value={attDate}
+                  onChange={(e) => setAttDate(e.target.value)}
+                  className="w-full text-xs p-2 rounded-lg border border-slate-300"
+                />
               </div>
-              <button
-                onClick={() => setModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 text-lg font-bold p-1"
-              >
-                ?
-              </button>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Jam Pelajaran Ke-:</label>
+                <select
+                  value={attPeriod}
+                  onChange={(e) => setAttPeriod(Number(e.target.value))}
+                  className="w-full text-xs p-2 rounded-lg border border-slate-300"
+                >
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((p) => (
+                    <option key={p} value={p}>
+                      Jam ke-{p}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Mata Pelajaran:</label>
+                <select
+                  value={attSubjectId}
+                  onChange={(e) => setAttSubjectId(e.target.value)}
+                  className="w-full text-xs p-2 rounded-lg border border-slate-300"
+                >
+                  {subjects.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Kelas:</label>
+                <select
+                  value={attClassId}
+                  onChange={(e) => setAttClassId(e.target.value)}
+                  className="w-full text-xs p-2 rounded-lg border border-slate-300"
+                >
+                  {classes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            <form onSubmit={handleSaveModalGrade} className="space-y-4 pt-4">
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-1">
-                <div className="font-bold text-slate-800">{modalAssignment.title}</div>
-                <div className="text-slate-500 flex items-center justify-between">
-                  <span>Mata Pelajaran: {modalAssignment.subjectName}</span>
-                  <span className="font-bold text-indigo-600">KKM: 75</span>
-                </div>
-              </div>
+            {/* Tabel Daftar Siswa untuk Absensi */}
+            <div className="border border-slate-200 rounded-xl overflow-hidden">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 border-b border-slate-200 font-bold text-slate-600">
+                  <tr>
+                    <th className="p-3">Nama Siswa</th>
+                    <th className="p-3">NISN</th>
+                    <th className="p-3 text-center">Status Kehadiran</th>
+                    <th className="p-3">Keterangan / Alasan</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {classStudents.map((student) => {
+                    const currentStatus = studentAttMap[student.id]?.status || 'HADIR';
+                    const currentReason = studentAttMap[student.id]?.reason || '';
 
-              {/* Score Input */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Nilai Siswa (0 - 100):
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={modalScore}
-                  onChange={(e) => setModalScore(Math.min(100, Math.max(0, Number(e.target.value))))}
-                  className="w-full text-lg font-extrabold p-2.5 rounded-xl border border-slate-300 text-slate-900 text-center focus:ring-2 focus:ring-indigo-500/20"
-                  required
-                />
+                    return (
+                      <tr key={student.id} className="hover:bg-slate-50/50">
+                        <td className="p-3 font-semibold text-slate-900">{student.name}</td>
+                        <td className="p-3 font-mono text-slate-500">{student.identifierNumber}</td>
+                        <td className="p-3">
+                          <div className="flex items-center justify-center gap-1">
+                            {(['HADIR', 'DISPEN', 'IZIN', 'SAKIT', 'ALPA'] as AttendanceStatus[]).map((st) => {
+                              const isChecked = currentStatus === st;
+                              const colors: Record<AttendanceStatus, string> = {
+                                HADIR: 'bg-emerald-500 text-white',
+                                DISPEN: 'bg-blue-500 text-white',
+                                IZIN: 'bg-cyan-500 text-white',
+                                SAKIT: 'bg-amber-500 text-white',
+                                ALPA: 'bg-rose-600 text-white font-black',
+                              };
 
-                {/* Quick Presets */}
-                <div className="flex items-center justify-center gap-1.5 mt-2">
-                  {[75, 80, 85, 90, 95, 100].map((sc) => (
-                    <button
-                      key={sc}
-                      type="button"
-                      onClick={() => setModalScore(sc)}
-                      className={`text-[11px] font-bold px-2 py-1 rounded-lg border transition ${
-                        modalScore === sc
-                          ? 'bg-indigo-600 text-white border-indigo-600'
-                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      {sc}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                              return (
+                                <button
+                                  type="button"
+                                  key={st}
+                                  onClick={() => handleAttStatusChange(student.id, st)}
+                                  className={`px-2 py-1 rounded text-[10px] font-bold transition ${
+                                    isChecked
+                                      ? `${colors[st]} shadow-xs`
+                                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                  }`}
+                                >
+                                  {st}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </td>
+                        <td className="p-3">
+                          {currentStatus !== 'HADIR' ? (
+                            <input
+                              type="text"
+                              value={currentReason}
+                              onChange={(e) => handleAttReasonChange(student.id, e.target.value)}
+                              placeholder={`Alasan ${currentStatus}...`}
+                              className="w-full text-xs p-1.5 rounded border border-rose-200 bg-rose-50/30"
+                            />
+                          ) : (
+                            <span className="text-[11px] text-emerald-600 font-medium">Hadir di kelas</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
 
-              {/* Teacher Feedback */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Catatan Guru / Feedback:
-                </label>
-                <textarea
-                  rows={3}
-                  value={modalFeedback}
-                  onChange={(e) => setModalFeedback(e.target.value)}
-                  className="w-full text-xs p-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500/20"
-                  placeholder="Beri umpan balik pengerjaan tugas siswa..."
-                />
-              </div>
-
-              <div className="flex items-center gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setModalOpen(false)}
-                  className="w-1/2 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-bold text-xs hover:bg-slate-50 transition"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="w-1/2 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md transition"
-                >
-                  ?? Simpan Nilai
-                </button>
-              </div>
-            </form>
-          </div>
+            <button
+              type="submit"
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition"
+            >
+              💾 Simpan Absensi & Jalankan Bot Evaluasi
+            </button>
+          </form>
         </div>
       )}
+
+      {/* TAB 4: TABEL NILAI TUGAS */}
+      {activeTab === 'tabel-nilai' && <GuruTaskGradeTableView />}
     </div>
   );
 };

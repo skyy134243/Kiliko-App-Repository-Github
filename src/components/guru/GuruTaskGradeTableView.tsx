@@ -221,7 +221,7 @@ export const GuruTaskGradeTableView: React.FC = () => {
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-2xl">??</span>
+            <span className="text-2xl">📊</span>
             <h1 className="text-xl font-bold text-slate-900">
               Tabel Rekapitulasi Nilai Tugas Siswa
             </h1>
@@ -240,7 +240,7 @@ export const GuruTaskGradeTableView: React.FC = () => {
             className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5"
             title="Download CSV untuk dibuka di Microsoft Excel"
           >
-            <span>??</span>
+            <span>📥</span>
             <span>Export ke Excel / CSV</span>
           </button>
 
@@ -249,7 +249,7 @@ export const GuruTaskGradeTableView: React.FC = () => {
             className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-xs transition flex items-center gap-1.5"
             title="Cetak format cetak tabel nilai"
           >
-            <span>???</span>
+            <span>🖨️</span>
             <span>Cetak Rekap</span>
           </button>
         </div>
@@ -259,7 +259,7 @@ export const GuruTaskGradeTableView: React.FC = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
           <span className="text-[11px] font-bold text-slate-500 uppercase block mb-1">
-            ?? Siswa di Kelas
+            👥 Siswa di Kelas
           </span>
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-black text-slate-900">{stats.totalStudents}</span>
@@ -269,7 +269,7 @@ export const GuruTaskGradeTableView: React.FC = () => {
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
           <span className="text-[11px] font-bold text-slate-500 uppercase block mb-1">
-            ?? Tugas Aktif
+            📝 Tugas Aktif
           </span>
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-black text-indigo-600">{stats.totalAssignments}</span>
@@ -279,11 +279,11 @@ export const GuruTaskGradeTableView: React.FC = () => {
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
           <span className="text-[11px] font-bold text-slate-500 uppercase block mb-1">
-            ?? Rata-Rata Kelas
+            📈 Rata-Rata Kelas
           </span>
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-black text-emerald-600">
-              {stats.classAverage > 0 ? stats.classAverage : '-'}
+              {stats.classAverage > 0 ? stats.classAverage : '—'}
             </span>
             <span className="text-xs text-slate-500">/ 100</span>
           </div>
@@ -291,7 +291,7 @@ export const GuruTaskGradeTableView: React.FC = () => {
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
           <span className="text-[11px] font-bold text-slate-500 uppercase block mb-1">
-            ?? Ketuntasan Tugas Tenggat
+            🏆 Ketuntasan Tugas Tenggat
           </span>
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-black text-purple-600">{stats.tenggatPassPercentage}%</span>
@@ -362,13 +362,13 @@ export const GuruTaskGradeTableView: React.FC = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full text-xs p-2 pl-8 rounded-lg border border-slate-300 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
             />
-            <span className="absolute left-2.5 top-2 text-slate-400 text-xs">??</span>
+            <span className="absolute left-2.5 top-2 text-slate-400 text-xs">🔍</span>
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
                 className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs font-bold"
               >
-                ?
+                ✕
               </button>
             )}
           </div>
@@ -379,7 +379,7 @@ export const GuruTaskGradeTableView: React.FC = () => {
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         {filteredAssignments.length === 0 ? (
           <div className="p-12 text-center">
-            <span className="text-4xl block mb-2">??</span>
+            <span className="text-4xl block mb-2">📋</span>
             <h3 className="text-sm font-bold text-slate-800 mb-1">Belum Ada Tugas untuk Kelas Ini</h3>
             <p className="text-xs text-slate-500 max-w-md mx-auto">
               Tidak ada tugas yang sesuai dengan filter kelas atau mata pelajaran saat ini. Silakan buat tugas baru melalui tab "Buat Tugas".
@@ -387,7 +387,7 @@ export const GuruTaskGradeTableView: React.FC = () => {
           </div>
         ) : classStudents.length === 0 ? (
           <div className="p-12 text-center">
-            <span className="text-4xl block mb-2">??</span>
+            <span className="text-4xl block mb-2">👥</span>
             <h3 className="text-sm font-bold text-slate-800 mb-1">Tidak Ada Murid Ditemukan</h3>
             <p className="text-xs text-slate-500">
               Tidak ada siswa yang cocok dengan pencarian "{searchQuery}" di kelas {currentClass?.name}.
@@ -520,7 +520,7 @@ export const GuruTaskGradeTableView: React.FC = () => {
                                 title={`Nilai: ${sub!.score!}. Klik untuk edit nilai.`}
                               >
                                 <span>{sub!.score}</span>
-                                <span className="text-[10px] opacity-60">?</span>
+                                <span className="text-[10px] opacity-60">✎</span>
                               </button>
                             ) : sub && sub.status === 'DIKUMPULKAN' ? (
                               <button
@@ -528,7 +528,7 @@ export const GuruTaskGradeTableView: React.FC = () => {
                                 className="w-full py-1.5 px-2 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 text-[11px] font-semibold transition"
                                 title="Jawaban sudah masuk. Klik untuk koreksi & beri nilai."
                               >
-                                ? Koreksi
+                                ⏳ Koreksi
                               </button>
                             ) : (
                               <button
@@ -536,7 +536,7 @@ export const GuruTaskGradeTableView: React.FC = () => {
                                 className="w-full py-1.5 px-2 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 border border-transparent hover:border-indigo-200 text-xs font-medium transition"
                                 title="Belum ada nilai. Klik untuk input nilai langsung."
                               >
-                                -
+                                —
                               </button>
                             )}
                           </td>
@@ -556,7 +556,7 @@ export const GuruTaskGradeTableView: React.FC = () => {
                             {(studentScoreSum / studentGradedCount).toFixed(1)}
                           </span>
                         ) : (
-                          <span className="text-slate-400">-</span>
+                          <span className="text-slate-400">—</span>
                         )}
                       </td>
 
@@ -568,11 +568,11 @@ export const GuruTaskGradeTableView: React.FC = () => {
                           </span>
                         ) : allTenggatPassed ? (
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                            ? Bebas Tugas
+                            ✓ Bebas Tugas
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                            ? Belum Tuntas
+                            ⚠ Belum Tuntas
                           </span>
                         )}
                       </td>
@@ -604,7 +604,7 @@ export const GuruTaskGradeTableView: React.FC = () => {
                     });
 
                     const taskAvg =
-                      taskGradedCount > 0 ? (taskScoreSum / taskGradedCount).toFixed(1) : '-';
+                      taskGradedCount > 0 ? (taskScoreSum / taskGradedCount).toFixed(1) : '—';
 
                     return (
                       <td key={task.id} className="p-2.5 text-center text-xs">
@@ -617,7 +617,7 @@ export const GuruTaskGradeTableView: React.FC = () => {
                   })}
 
                   <td className="p-3 text-center text-xs font-black text-slate-900">
-                    {stats.classAverage > 0 ? stats.classAverage : '-'}
+                    {stats.classAverage > 0 ? stats.classAverage : '—'}
                   </td>
                   <td className="p-3 text-center text-[10px] text-slate-500">
                     {stats.studentsPassingAllTenggat}/{classStudents.length} Tuntas
@@ -635,7 +635,7 @@ export const GuruTaskGradeTableView: React.FC = () => {
           <span className="font-bold text-slate-700">Keterangan Warna Nilai:</span>
           <span className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded bg-emerald-500 inline-block"></span>
-            <span>? 85 (Sangat Baik)</span>
+            <span>≥ 85 (Sangat Baik)</span>
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded bg-blue-500 inline-block"></span>
@@ -667,14 +667,14 @@ export const GuruTaskGradeTableView: React.FC = () => {
                 </span>
                 <h3 className="text-base font-bold text-slate-900">{modalStudent.name}</h3>
                 <p className="text-xs text-slate-500">
-                  NISN: {modalStudent.identifierNumber} . Kelas: {currentClass?.name}
+                  NISN: {modalStudent.identifierNumber} • Kelas: {currentClass?.name}
                 </p>
               </div>
               <button
                 onClick={() => setModalOpen(false)}
                 className="text-slate-400 hover:text-slate-700 text-lg font-bold p-1"
               >
-                ?
+                ✕
               </button>
             </div>
 
@@ -747,7 +747,7 @@ export const GuruTaskGradeTableView: React.FC = () => {
                   type="submit"
                   className="w-1/2 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md transition"
                 >
-                  ?? Simpan Nilai
+                  💾 Simpan Nilai
                 </button>
               </div>
             </form>

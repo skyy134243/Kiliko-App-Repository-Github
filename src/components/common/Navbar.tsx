@@ -60,7 +60,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onClick={() => onOpenClearanceModal && onOpenClearanceModal()}
                 className="px-3 py-1.5 rounded-lg text-sm font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition flex items-center gap-1.5"
               >
-                <span>??</span>
+                <span>📜</span>
                 <span>Surat Bebas Tugas</span>
               </button>
             </>
@@ -106,7 +106,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                 }`}
               >
-                ?? Tabel Nilai
+                📊 Tabel Nilai
               </button>
             </>
           )}
@@ -120,7 +120,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
-              <span>?? Dasbor Kelas X IPA 1</span>
+              <span>📋 Dasbor Kelas X IPA 1</span>
               {waLogs.length > 0 && (
                 <span className="px-2 py-0.5 text-xs rounded-full font-bold bg-emerald-600 text-white">
                   {waLogs.length} WA
@@ -191,7 +191,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             title="Uji Halaman Verifikasi QR Code Publik"
             className="text-xs text-slate-500 hover:text-indigo-600 font-medium px-2 py-1 rounded border border-dashed border-slate-300 ml-2"
           >
-            ?? Tes Scan QR
+            🔍 Tes Scan QR
           </button>
         </nav>
       </div>
