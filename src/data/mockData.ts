@@ -9,9 +9,10 @@ import {
   WhatsAppLog,
 } from '../types';
 import { ALL_CLASSES_X, RAW_STUDENTS_LIST } from './masterStudents';
+import { ALL_CLASSES_XI, RAW_STUDENTS_LIST_XI } from './masterStudents11';
 
-// Transform 352 raw students into full User objects with generated NISN & Parent Info
-const GENERATED_STUDENTS: User[] = RAW_STUDENTS_LIST.map((s) => {
+// Transform 352 raw students of Kelas X into full User objects
+const GENERATED_STUDENTS_X: User[] = RAW_STUDENTS_LIST.map((s) => {
   const nisnNumber = `20241${String(s.no).padStart(4, '0')}`;
   const parentPrefix = s.gender === 'Laki-laki' ? 'Bpk. ' : 'Ibu ';
   const lastName = s.name.split(' ').slice(-1)[0];
@@ -31,6 +32,31 @@ const GENERATED_STUDENTS: User[] = RAW_STUDENTS_LIST.map((s) => {
       : 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&auto=format&fit=crop&q=80',
   };
 });
+
+// Transform 352 raw students of Kelas XI into full User objects
+const GENERATED_STUDENTS_XI: User[] = RAW_STUDENTS_LIST_XI.map((s) => {
+  const nisnNumber = `20231${String(s.no).padStart(4, '0')}`;
+  const parentPrefix = s.gender === 'Laki-laki' ? 'Bpk. ' : 'Ibu ';
+  const lastName = s.name.split(' ').slice(-1)[0];
+
+  return {
+    id: `student-xi-${s.no}`,
+    name: s.name,
+    email: `${s.name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12)}${s.no}@sman1kandangan.sch.id`,
+    identifierNumber: nisnNumber,
+    role: 'SISWA',
+    classId: s.classId,
+    className: s.className,
+    parentName: `${parentPrefix}${lastName}`,
+    parentPhone: `0813-${String(1000 + (s.no * 19)).padStart(4, '0')}-${String(3000 + (s.no * 23)).padStart(4, '0')}`,
+    avatarUrl: s.gender === 'Laki-laki'
+      ? 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=120&auto=format&fit=crop&q=80'
+      : 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&auto=format&fit=crop&q=80',
+  };
+});
+
+// All 704 students
+const GENERATED_STUDENTS: User[] = [...GENERATED_STUDENTS_X, ...GENERATED_STUDENTS_XI];
 
 // Staff & Teachers
 const STAFF_USERS: User[] = [
@@ -96,22 +122,38 @@ const STAFF_USERS: User[] = [
   },
 ];
 
-// Combine all 352 students + Staff
-export const INITIAL_USERS: User[] = [...GENERATED_STUDENTS, ...STAFF_USERS];
+// Combine all 704 students (Kelas X & XI) + Staff
+export const INITIAL_USERS: User[] = [...GENERATED_STUDENTS_X, ...GENERATED_STUDENTS_XI, ...STAFF_USERS];
 
-export const INITIAL_CLASSES: ClassRoom[] = ALL_CLASSES_X.map((c) => ({
-  ...c,
-  homeroomTeacherId: c.id === 'cls-x-1' ? 'user-guru-1' : 'user-guru-2',
-  homeroomTeacherName: c.id === 'cls-x-1' ? 'Ibu Sri Wahyuni, M.Pd' : 'Pak Bambang Irawan, S.Pd',
-}));
+export const INITIAL_CLASSES: ClassRoom[] = [
+  ...ALL_CLASSES_X.map((c) => ({
+    ...c,
+    homeroomTeacherId: c.id === 'cls-x-1' ? 'user-guru-1' : 'user-guru-2',
+    homeroomTeacherName: c.id === 'cls-x-1' ? 'Ibu Sri Wahyuni, M.Pd' : 'Pak Bambang Irawan, S.Pd',
+  })),
+  ...ALL_CLASSES_XI.map((c) => ({
+    ...c,
+    homeroomTeacherId: c.id === 'cls-xi-1' ? 'user-guru-1' : 'user-guru-2',
+    homeroomTeacherName: c.id === 'cls-xi-1' ? 'Ibu Sri Wahyuni, M.Pd' : 'Pak Bambang Irawan, S.Pd',
+  })),
+];
 
 export const INITIAL_SUBJECTS: Subject[] = [
-  { id: 'sbj-fis', code: 'FIS-10', name: 'Fisika', teacherId: 'user-guru-1', teacherName: 'Ibu Sri Wahyuni, M.Pd' },
-  { id: 'sbj-mat', code: 'MAT-10', name: 'Matematika Wajib', teacherId: 'user-guru-1', teacherName: 'Ibu Sri Wahyuni, M.Pd' },
-  { id: 'sbj-bio', code: 'BIO-10', name: 'Biologi', teacherId: 'user-guru-2', teacherName: 'Pak Bambang Irawan, S.Pd' },
-  { id: 'sbj-sos', code: 'SOS-10', name: 'Sosiologi', teacherId: 'user-guru-2', teacherName: 'Pak Bambang Irawan, S.Pd' },
-  { id: 'sbj-kim', code: 'KIM-10', name: 'Kimia', teacherId: 'user-guru-1', teacherName: 'Ibu Sri Wahyuni, M.Pd' },
-  { id: 'sbj-ind', code: 'IND-10', name: 'Bahasa Indonesia', teacherId: 'user-guru-2', teacherName: 'Pak Bambang Irawan, S.Pd' },
+  // Mata Pelajaran Kelas X
+  { id: 'sbj-fis', code: 'FIS-10', name: 'Fisika X', teacherId: 'user-guru-1', teacherName: 'Ibu Sri Wahyuni, M.Pd' },
+  { id: 'sbj-mat', code: 'MAT-10', name: 'Matematika Wajib X', teacherId: 'user-guru-1', teacherName: 'Ibu Sri Wahyuni, M.Pd' },
+  { id: 'sbj-bio', code: 'BIO-10', name: 'Biologi X', teacherId: 'user-guru-2', teacherName: 'Pak Bambang Irawan, S.Pd' },
+  { id: 'sbj-sos', code: 'SOS-10', name: 'Sosiologi X', teacherId: 'user-guru-2', teacherName: 'Pak Bambang Irawan, S.Pd' },
+  { id: 'sbj-kim', code: 'KIM-10', name: 'Kimia X', teacherId: 'user-guru-1', teacherName: 'Ibu Sri Wahyuni, M.Pd' },
+  { id: 'sbj-ind', code: 'IND-10', name: 'Bahasa Indonesia X', teacherId: 'user-guru-2', teacherName: 'Pak Bambang Irawan, S.Pd' },
+
+  // Mata Pelajaran Kelas XI
+  { id: 'sbj-fis-11', code: 'FIS-11', name: 'Fisika XI', teacherId: 'user-guru-1', teacherName: 'Ibu Sri Wahyuni, M.Pd' },
+  { id: 'sbj-mat-11', code: 'MAT-11', name: 'Matematika XI', teacherId: 'user-guru-1', teacherName: 'Ibu Sri Wahyuni, M.Pd' },
+  { id: 'sbj-bio-11', code: 'BIO-11', name: 'Biologi XI', teacherId: 'user-guru-2', teacherName: 'Pak Bambang Irawan, S.Pd' },
+  { id: 'sbj-sos-11', code: 'SOS-11', name: 'Sosiologi XI', teacherId: 'user-guru-2', teacherName: 'Pak Bambang Irawan, S.Pd' },
+  { id: 'sbj-kim-11', code: 'KIM-11', name: 'Kimia XI', teacherId: 'user-guru-1', teacherName: 'Ibu Sri Wahyuni, M.Pd' },
+  { id: 'sbj-ind-11', code: 'IND-11', name: 'Bahasa Indonesia XI', teacherId: 'user-guru-2', teacherName: 'Pak Bambang Irawan, S.Pd' },
 ];
 
 export const INITIAL_ASSIGNMENTS: Assignment[] = [
@@ -218,6 +260,50 @@ export const INITIAL_ASSIGNMENTS: Assignment[] = [
     teacherName: 'Pak Bambang Irawan, S.Pd',
     createdAt: '2026-11-15T11:00:00',
   },
+  {
+    id: 'task-xi-1',
+    title: 'LKPD 01: Dinamika Rotasi & Momen Inersia',
+    description: 'Kerjakan tugas analisis gerak menggelinding tanpa slip pada bidang miring. Foto lembar jawaban fisik Anda dan unggah ke aplikasi.',
+    type: 'LKPD_ESAI',
+    category: 'TENGGAT',
+    deadline: '2026-11-26T23:59:00',
+    subjectId: 'sbj-fis-11',
+    subjectName: 'Fisika XI',
+    classId: 'cls-xi-1',
+    className: 'XI-1',
+    teacherId: 'user-guru-1',
+    teacherName: 'Ibu Sri Wahyuni, M.Pd',
+    createdAt: '2026-11-16T08:00:00',
+  },
+  {
+    id: 'task-xi-2',
+    title: 'Kuis Bab 3: Sistem Sirkulasi Darah Manusia',
+    description: 'Kuis pilihan ganda interaktif. Diperiksa dan dinilai langsung secara otomatis oleh bot aplikasi.',
+    type: 'PILIHAN_GANDA',
+    category: 'TENGGAT',
+    deadline: '2026-11-27T23:59:00',
+    subjectId: 'sbj-bio-11',
+    subjectName: 'Biologi XI',
+    classId: 'cls-xi-1',
+    className: 'XI-1',
+    teacherId: 'user-guru-2',
+    teacherName: 'Pak Bambang Irawan, S.Pd',
+    isAnswerKeyLocked: true,
+    questions: [
+      {
+        id: 'q1',
+        questionText: 'Bagian jantung yang memompa darah bersih ke seluruh tubuh adalah...',
+        options: [
+          { key: 'A', text: 'Serambi kanan' },
+          { key: 'B', text: 'Bilik kiri' },
+          { key: 'C', text: 'Bilik kanan' },
+          { key: 'D', text: 'Serambi kiri' },
+        ],
+        correctKey: 'B',
+      },
+    ],
+    createdAt: '2026-11-17T09:00:00',
+  },
 ];
 
 export const INITIAL_SUBMISSIONS: Submission[] = [
@@ -264,6 +350,32 @@ export const INITIAL_SUBMISSIONS: Submission[] = [
     compressedSizeKb: 340,
     textContent: 'Mohon maaf bu Sri baru bisa mengumpulkan sekarang.',
   },
+  {
+    id: 'sub-xi-1',
+    assignmentId: 'task-xi-1',
+    studentId: 'student-xi-1',
+    studentName: 'ANGGUN FADHILLA RAMADHANI',
+    studentNis: '202311001',
+    status: 'DINILAI',
+    submittedAt: '2026-11-17T11:00:00',
+    score: 92,
+    teacherFeedback: 'Analisis momen gaya dan rotasi sangat terinci dan benar.',
+    gradedAt: '2026-11-17T14:30:00',
+    gradedById: 'user-guru-1',
+  },
+  {
+    id: 'sub-xi-2',
+    assignmentId: 'task-xi-2',
+    studentId: 'student-xi-1',
+    studentName: 'ANGGUN FADHILLA RAMADHANI',
+    studentNis: '202311001',
+    status: 'DINILAI',
+    submittedAt: '2026-11-17T15:20:00',
+    score: 100,
+    teacherFeedback: 'Nilai otomatis oleh bot kuis: 100/100',
+    gradedAt: '2026-11-17T15:20:02',
+    gradedById: 'bot-auto-grader',
+  },
 ];
 
 export const INITIAL_GRADEBOOK: GradebookEntry[] = [
@@ -300,6 +412,40 @@ export const INITIAL_GRADEBOOK: GradebookEntry[] = [
     assessmentType: 'SUMATIF_LINGKUP_MATERI',
     learningObjective: 'TP 10.2: Mengidentifikasi organel sel dan fungsinya',
     syncedAt: '2026-11-15T16:00:05',
+  },
+  {
+    id: 'gb-xi-1',
+    studentId: 'student-xi-1',
+    studentName: 'ANGGUN FADHILLA RAMADHANI',
+    studentNis: '202311001',
+    classId: 'cls-xi-1',
+    subjectId: 'sbj-fis-11',
+    subjectName: 'Fisika XI',
+    assignmentId: 'task-xi-1',
+    assignmentTitle: 'LKPD 01: Dinamika Rotasi & Momen Inersia',
+    taskCategory: 'TENGGAT',
+    score: 92,
+    isAutoSynced: true,
+    assessmentType: 'FORMATIF',
+    learningObjective: 'TP 11.1: Menganalisis gerak rotasi dan kesetimbangan benda tegar',
+    syncedAt: '2026-11-17T14:30:00',
+  },
+  {
+    id: 'gb-xi-2',
+    studentId: 'student-xi-1',
+    studentName: 'ANGGUN FADHILLA RAMADHANI',
+    studentNis: '202311001',
+    classId: 'cls-xi-1',
+    subjectId: 'sbj-bio-11',
+    subjectName: 'Biologi XI',
+    assignmentId: 'task-xi-2',
+    assignmentTitle: 'Kuis Bab 3: Sistem Sirkulasi Darah Manusia',
+    taskCategory: 'TENGGAT',
+    score: 100,
+    isAutoSynced: true,
+    assessmentType: 'SUMATIF_LINGKUP_MATERI',
+    learningObjective: 'TP 11.2: Memahami struktur peredaran darah besar dan kecil',
+    syncedAt: '2026-11-17T15:20:02',
   },
 ];
 

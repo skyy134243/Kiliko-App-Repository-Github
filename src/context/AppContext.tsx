@@ -77,8 +77,8 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// Auto-migration check: memastikan data 352 siswa baru termuat otomatis
-const DB_VERSION = 'v1.2-352-students';
+// Auto-migration check: memastikan seluruh 704 siswa Kelas X & XI termuat otomatis
+const DB_VERSION = 'v1.3-704-students-x-xi';
 if (typeof window !== 'undefined' && localStorage.getItem('kiliko_db_version') !== DB_VERSION) {
   localStorage.clear();
   localStorage.setItem('kiliko_db_version', DB_VERSION);
