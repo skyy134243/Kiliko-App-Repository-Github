@@ -58,6 +58,12 @@ interface AppContextType {
     score: number,
     feedback: string
   ) => void;
+  directGradeStudent: (
+    assignmentId: string,
+    studentId: string,
+    score: number,
+    feedback?: string
+  ) => void;
   recordClassAttendance: (
     date: string,
     periodNumber: number,
@@ -270,6 +276,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const directGradeStudent = (
+    assignmentId: string,
+    studentId: string,
+    score: number,
+    feedback: string = 'Penilaian langsung oleh guru'
+  ) => {
+    const assignment = assignments.find((a) => a.id === assignmentId);
+    const student = users.find((u) => u.id === studentId);
+    if (!assignment || !student) return;
+
+    const existingSub = submissions.find(
+      (s) => s.assignmentId === assignmentId && s.studentId === studentId
+    );
+    let subToSync: Submission;
+
+    if (existingSub) {
+      subToSync = {
+        ...existingSub,
+        score,
+        teacherFeedback: feedback,
+        status: 'DINILAI',
+        gradedAt: new Date().toISOString(),
+        gradedById: currentUser.id,
+      };
+      setSubmissions((prev) =>
+        prev.map((s) => (s.id === existingSub.id ? subToSync : s))
+      );
+    } else {
+      subToSync = {
+        id: `sub-${assignmentId}-${studentId}`,
+        assignmentId,
+        studentId,
+        studentName: student.name,
+        studentNis: student.identifierNumber,
+        status: 'DINILAI',
+        submittedAt: new Date().toISOString(),
+        score,
+        teacherFeedback: feedback,
+        gradedAt: new Date().toISOString(),
+        gradedById: currentUser.id,
+      };
+      setSubmissions((prev) => [subToSync, ...prev]);
+    }
+
+    setGradebook((prevGb) =>
+      syncSubmissionToGradebook(subToSync, assignment, users, prevGb)
+    );
+  };
+
   const recordClassAttendance = (
     date: string,
     periodNumber: number,
@@ -360,6 +415,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createAssignment,
         submitAssignment,
         gradeSubmission,
+        directGradeStudent,
         recordClassAttendance,
         resolveBotAlert,
         sendWhatsAppMessage,
