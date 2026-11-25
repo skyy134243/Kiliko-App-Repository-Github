@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from './context/AppContext';
 import { LoginPage } from './components/auth/LoginPage';
 import { SiswaDashboard } from './components/siswa/SiswaDashboard';
-import { Navbar } from './components/common/Navbar';
+import { CanvaDashboardShell, TabItem, QuickCardItem } from './components/common/CanvaDashboardShell';
 import { TaskSubmissionModal } from './components/siswa/TaskSubmissionModal';
 import { MultipleChoiceQuizModal } from './components/siswa/MultipleChoiceQuizModal';
 import { SuratBebasTugasModal } from './components/siswa/SuratBebasTugasModal';
@@ -16,7 +16,18 @@ import { VerificationView } from './components/public/VerificationView';
 import { Assignment } from './types';
 
 export const App: React.FC = () => {
-  const { currentUser, isAuthenticated, login, loginError, isLoggingIn, logout } = useApp();
+  const {
+    currentUser,
+    isAuthenticated,
+    login,
+    loginError,
+    isLoggingIn,
+    logout,
+    submissions,
+    botAlerts,
+    waLogs,
+    assignments,
+  } = useApp();
 
   const [activeTab, setActiveTab] = useState<string>('default');
 
@@ -35,12 +46,12 @@ export const App: React.FC = () => {
     setIsVerifyingPublic(true);
   };
 
-  // ============ NOT AUTHENTICATED => SHOW LOGIN ============
+  // ============ 1. NOT AUTHENTICATED => SHOW LOGIN ============
   if (!isAuthenticated) {
     return <LoginPage onLogin={login} loginError={loginError} isLoading={isLoggingIn} />;
   }
 
-  // ============ SISWA ROLE => CUSTOM CANVA-STYLE DASHBOARD ============
+  // ============ 2. SISWA ROLE => CANVA-STYLE SISWA DASHBOARD ============
   if (currentUser.role === 'SISWA') {
     return (
       <>
@@ -51,7 +62,6 @@ export const App: React.FC = () => {
           onLogout={logout}
         />
 
-        {/* Modals */}
         {submissionTask && (
           <TaskSubmissionModal
             assignment={submissionTask}
@@ -76,97 +86,253 @@ export const App: React.FC = () => {
     );
   }
 
-  // ============ STAFF/NON-SISWA ROLES => STANDARD LAYOUT ============
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
-      {/* Compact Role Info Bar */}
-      <div className="bg-slate-900 text-white px-4 py-2 border-b border-slate-800">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">
-              {currentUser.role === 'GURU' && '👩‍🏫 Guru Mapel'}
-              {currentUser.role === 'WALI_KELAS' && '📋 Wali Kelas'}
-              {currentUser.role === 'BK' && '🛡️ Guru BK'}
-              {currentUser.role === 'TU' && '📊 Tata Usaha'}
-              {currentUser.role === 'KEPALA_SEKOLAH' && '🏛️ Kepala Sekolah'}
-              {currentUser.role === 'ADMIN' && '⚙️ Administrator'}
-            </span>
-            <span className="text-xs text-slate-300">{currentUser.name}</span>
-          </div>
-          <button
-            onClick={logout}
-            className="text-xs text-slate-400 hover:text-red-300 transition flex items-center gap-1"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            Keluar
-          </button>
-        </div>
-      </div>
-
-      {/* Main Navbar */}
-      <Navbar
-        activeTab={activeTab}
-        setActiveTab={(tab) => {
-          setIsVerifyingPublic(false);
-          setActiveTab(tab);
-        }}
-        onOpenClearanceModal={() => setIsClearanceModalOpen(true)}
-        onOpenVerification={() => openVerification()}
-      />
-
-      {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {isVerifyingPublic ? (
+  // QR Verification View override if active
+  if (isVerifyingPublic) {
+    return (
+      <div className="min-h-screen bg-cyan-300 p-4 sm:p-8 flex items-center justify-center">
+        <div className="w-full max-w-2xl bg-white rounded-3xl p-6 shadow-xl">
           <VerificationView
             verificationCode={verificationCode}
             onBack={() => setIsVerifyingPublic(false)}
           />
-        ) : (
-          <>
-            {currentUser.role === 'GURU' && (
-              <GuruDashboardView
-                initialSubTab={
-                  activeTab === 'tabel-nilai'
-                    ? 'tabel-nilai'
-                    : activeTab === 'absensi'
-                    ? 'absensi'
-                    : activeTab === 'koreksi'
-                    ? 'koreksi'
-                    : 'buat-tugas'
-                }
-              />
-            )}
-
-            {currentUser.role === 'WALI_KELAS' && <WaliKelasDashboardView />}
-            {currentUser.role === 'BK' && <BKDashboardView />}
-            {currentUser.role === 'TU' && <TUGradebookView />}
-            {currentUser.role === 'KEPALA_SEKOLAH' && <KepsekDashboardView />}
-            {currentUser.role === 'ADMIN' && <AdminDashboardView />}
-          </>
-        )}
-      </main>
-
-      {/* Modals */}
-      {isClearanceModalOpen && (
-        <SuratBebasTugasModal
-          onClose={() => setIsClearanceModalOpen(false)}
-          onOpenVerificationWithCode={(code) => openVerification(code)}
-        />
-      )}
-
-      {/* Footer */}
-      <footer className="bg-white border-t border-slate-200 py-6 mt-auto text-center text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span>
-            <strong>Kiliko.App</strong> · Platform Digital Tugas, Absensi, dan Nilai Sekolah
-          </span>
-          <span className="text-slate-400">
-            Disusun oleh Argha (Product Manager) · Versi 1.1 EduTech Enhancement
-          </span>
         </div>
-      </footer>
-    </div>
+      </div>
+    );
+  }
+
+  // ============ 3. GURU MAPEL ROLE ============
+  if (currentUser.role === 'GURU') {
+    const pendingSubs = submissions.filter((s) => s.status === 'DIKUMPULKAN');
+    const guruTab = activeTab === 'default' ? 'buat-tugas' : activeTab;
+
+    const tabs: TabItem[] = [
+      { key: 'buat-tugas', label: '➕ Buat Tugas' },
+      { key: 'koreksi', label: '📑 Koreksi Tugas', badge: pendingSubs.length > 0 ? pendingSubs.length : undefined },
+      { key: 'absensi', label: '📅 Input Absensi' },
+      { key: 'tabel-nilai', label: '📊 Tabel Nilai' },
+    ];
+
+    const recommendations: QuickCardItem[] = [
+      {
+        id: 'rec-tabel',
+        title: 'Tabel Nilai Siswa',
+        subtitle: 'Matriks nilai tugas seluruh kelas',
+        icon: '📊',
+        statusBadge: { label: 'Otomatis', color: 'bg-emerald-100 text-emerald-700 border-emerald-300' },
+        onClick: () => setActiveTab('tabel-nilai'),
+      },
+      {
+        id: 'rec-absensi',
+        title: 'Absensi Jam Pelajaran',
+        subtitle: 'Input absensi hadir/izin/alpa',
+        icon: '📅',
+        statusBadge: { label: 'Presensi', color: 'bg-cyan-100 text-cyan-700 border-cyan-300' },
+        onClick: () => setActiveTab('absensi'),
+      },
+      {
+        id: 'rec-ocr',
+        title: 'Extract Soal AI',
+        subtitle: 'Buat kuis pilihan ganda otomatis',
+        icon: '⚡',
+        tag: 'OCR Simulation',
+        onClick: () => setActiveTab('buat-tugas'),
+      },
+    ];
+
+    return (
+      <CanvaDashboardShell
+        roleBadge="GURU MAPEL"
+        userName={currentUser.name}
+        userSubtitle="SMAN 1 Kandangan · Guru Mata Pelajaran"
+        tabs={tabs}
+        activeTab={guruTab}
+        onTabChange={(t) => setActiveTab(t)}
+        searchPlaceholder="Cari tugas, siswa, atau kelas..."
+        bestDealCard={{
+          title: 'Koreksi Lembar Jawaban & Kuis Siswa',
+          subtitle: `${pendingSubs.length} lembar tugas siswa telah dikumpulkan dan menunggu penilaian guru`,
+          teacherOrMeta: 'Fisika & Matematika · SMAN 1 Kandangan',
+          actionLabel: 'Periksa Sekarang',
+          statusBadge: {
+            label: pendingSubs.length > 0 ? `${pendingSubs.length} Menunggu` : 'Semua Tuntas',
+            color: pendingSubs.length > 0 ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-emerald-100 text-emerald-800 border-emerald-300',
+          },
+          pdfText: 'LKPD & Tugas Siswa.pdf',
+          onClick: () => setActiveTab('koreksi'),
+        }}
+        recommendations={recommendations}
+      >
+        <GuruDashboardView
+          initialSubTab={
+            guruTab === 'tabel-nilai'
+              ? 'tabel-nilai'
+              : guruTab === 'absensi'
+              ? 'absensi'
+              : guruTab === 'koreksi'
+              ? 'koreksi'
+              : 'buat-tugas'
+          }
+          onSubTabChange={(t) => setActiveTab(t)}
+        />
+      </CanvaDashboardShell>
+    );
+  }
+
+  // ============ 4. WALI KELAS ROLE ============
+  if (currentUser.role === 'WALI_KELAS') {
+    const tabs: TabItem[] = [
+      { key: 'monitoring', label: '📋 Dasbor & Pantau Tugas' },
+      { key: 'wa-logs', label: '💬 Log WhatsApp Ortu', badge: waLogs.length > 0 ? waLogs.length : undefined },
+    ];
+
+    return (
+      <CanvaDashboardShell
+        roleBadge="WALI KELAS"
+        userName={currentUser.name}
+        userSubtitle="Wali Kelas X-1 · SMAN 1 Kandangan"
+        tabs={tabs}
+        activeTab={activeTab === 'default' ? 'monitoring' : activeTab}
+        onTabChange={(t) => setActiveTab(t)}
+        searchPlaceholder="Cari siswa atau tugas tenggat kelas..."
+        bestDealCard={{
+          title: 'Pemantauan Tugas Tenggat Wajib Kelas X-1',
+          subtitle: 'Pastikan seluruh siswa menuntaskan tugas tenggat sebelum diterbitkan Surat Bebas Tugas Digital',
+          teacherOrMeta: 'Wali Kelas X-1 · SMAN 1 Kandangan',
+          actionLabel: 'Pantau Kelas',
+          statusBadge: { label: 'Perlu Monitoring', color: 'bg-orange-100 text-orange-800 border-orange-300' },
+          onClick: () => setActiveTab('monitoring'),
+        }}
+        recommendations={[
+          {
+            id: 'rec-wa',
+            title: 'Kirim Peringatan WA',
+            subtitle: 'Notifikasi otomatis ke orang tua',
+            icon: '📱',
+            statusBadge: { label: 'WhatsApp Gateway', color: 'bg-emerald-100 text-emerald-700 border-emerald-300' },
+            onClick: () => setActiveTab('wa-logs'),
+          },
+        ]}
+      >
+        <WaliKelasDashboardView />
+      </CanvaDashboardShell>
+    );
+  }
+
+  // ============ 5. GURU BK ROLE ============
+  if (currentUser.role === 'BK') {
+    const urgentCount = botAlerts.filter((a) => a.priority === 'MENDESAK' && a.followUpStatus === 'PENDING').length;
+    const pendingCount = botAlerts.filter((a) => a.followUpStatus === 'PENDING').length;
+
+    const tabs: TabItem[] = [
+      { key: 'bk-alerts', label: '🛡️ Laporan Bot Absensi', badge: urgentCount > 0 ? urgentCount : undefined },
+    ];
+
+    return (
+      <CanvaDashboardShell
+        roleBadge="GURU BK"
+        userName={currentUser.name}
+        userSubtitle="Bimbingan & Konseling · Penanganan Kehadiran Siswa"
+        tabs={tabs}
+        activeTab={activeTab === 'default' ? 'bk-alerts' : activeTab}
+        onTabChange={(t) => setActiveTab(t)}
+        searchPlaceholder="Cari siswa, kelas, atau kasus absensi..."
+        bestDealCard={{
+          title: 'Bot Pemantau Absensi Siswa Otomatis',
+          subtitle: `${pendingCount} siswa memicu peringatan ketidakhadiran (akumulasi >= 3 sesi atau 1x Alpa)`,
+          teacherOrMeta: 'Guru BK: Dra. Ratna Megasari',
+          actionLabel: 'Tindak Lanjut',
+          statusBadge: {
+            label: urgentCount > 0 ? 'Mendesak' : 'Terkontrol',
+            color: urgentCount > 0 ? 'bg-red-100 text-red-800 border-red-300' : 'bg-emerald-100 text-emerald-800 border-emerald-300',
+          },
+          onClick: () => setActiveTab('bk-alerts'),
+        }}
+      >
+        <BKDashboardView />
+      </CanvaDashboardShell>
+    );
+  }
+
+  // ============ 6. TATA USAHA (TU) ROLE ============
+  if (currentUser.role === 'TU') {
+    const tabs: TabItem[] = [
+      { key: 'tu-gradebook', label: '📊 Tabel Nilai & e-Rapor' },
+    ];
+
+    return (
+      <CanvaDashboardShell
+        roleBadge="TATA USAHA"
+        userName={currentUser.name}
+        userSubtitle="Administrasi Nilai & Kurikulum Merdeka"
+        tabs={tabs}
+        activeTab={activeTab === 'default' ? 'tu-gradebook' : activeTab}
+        onTabChange={(t) => setActiveTab(t)}
+        searchPlaceholder="Cari nilai siswa atau mata pelajaran..."
+        bestDealCard={{
+          title: 'Buku Nilai Digital & e-Rapor Kurikulum Merdeka',
+          subtitle: 'Sinkronisasi nilai otomatis dengan Capaian Pembelajaran (TP) untuk seluruh 704 siswa',
+          teacherOrMeta: 'Staf Tata Usaha: Hendra Kurniawan',
+          actionLabel: 'Buka Buku Nilai',
+          statusBadge: { label: 'Tersinkron', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+          onClick: () => setActiveTab('tu-gradebook'),
+        }}
+      >
+        <TUGradebookView />
+      </CanvaDashboardShell>
+    );
+  }
+
+  // ============ 7. KEPALA SEKOLAH ROLE ============
+  if (currentUser.role === 'KEPALA_SEKOLAH') {
+    const tabs: TabItem[] = [
+      { key: 'kepsek', label: '🏛️ Dasbor Kepsek & TTE' },
+    ];
+
+    return (
+      <CanvaDashboardShell
+        roleBadge="KEPALA SEKOLAH"
+        userName={currentUser.name}
+        userSubtitle="Pimpinan Sekolah SMAN 1 Kandangan"
+        tabs={tabs}
+        activeTab={activeTab === 'default' ? 'kepsek' : activeTab}
+        onTabChange={(t) => setActiveTab(t)}
+        searchPlaceholder="Cari berkas surat atau data sekolah..."
+        bestDealCard={{
+          title: 'Otorisasi Tanda Tangan Elektronik (TTE) Digital',
+          subtitle: 'Verifikasi keamanan sertifikat digital Surat Bebas Tugas dengan hashing SHA-256 dan QR Code publik',
+          teacherOrMeta: 'Drs. H. Mulyadi, M.Pd · Kepala Sekolah',
+          actionLabel: 'Tinjau TTE',
+          statusBadge: { label: 'Resmi TTE', color: 'bg-cyan-100 text-cyan-800 border-cyan-300' },
+          onClick: () => setActiveTab('kepsek'),
+        }}
+      >
+        <KepsekDashboardView />
+      </CanvaDashboardShell>
+    );
+  }
+
+  // ============ 8. ADMIN ROLE ============
+  return (
+    <CanvaDashboardShell
+      roleBadge="ADMINISTRATOR"
+      userName={currentUser.name}
+      userSubtitle="Pengelola Teknis Kiliko.App · Argha PM"
+      tabs={[
+        { key: 'admin', label: '⚙️ Manajemen Sistem' },
+      ]}
+      activeTab={activeTab === 'default' ? 'admin' : activeTab}
+      onTabChange={(t) => setActiveTab(t)}
+      searchPlaceholder="Cari modul atau pengaturan sistem..."
+      bestDealCard={{
+        title: 'Manajemen Basis Data & Integrasi Sekolah',
+        subtitle: '704 siswa aktif (Kelas X & XI), 20 rombel kelas, penilaian e-Rapor & gateway WhatsApp',
+        teacherOrMeta: 'Argha (Product Manager & Tech Lead)',
+        actionLabel: 'Kelola Sistem',
+        statusBadge: { label: 'v1.4 Stabil', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+        onClick: () => setActiveTab('admin'),
+      }}
+    >
+      <AdminDashboardView />
+    </CanvaDashboardShell>
   );
 };

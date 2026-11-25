@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Assignment, TaskType, TaskCategory, AttendanceStatus, QuizQuestion } from '../../types';
 import { simulateAiOcrExtraction } from '../../services/ocrSimulation';
@@ -6,10 +6,12 @@ import { GuruTaskGradeTableView } from './GuruTaskGradeTableView';
 
 interface GuruDashboardViewProps {
   initialSubTab?: 'buat-tugas' | 'koreksi' | 'absensi' | 'tabel-nilai';
+  onSubTabChange?: (tab: 'buat-tugas' | 'koreksi' | 'absensi' | 'tabel-nilai') => void;
 }
 
 export const GuruDashboardView: React.FC<GuruDashboardViewProps> = ({
   initialSubTab = 'buat-tugas',
+  onSubTabChange,
 }) => {
   const {
     currentUser,
@@ -24,6 +26,17 @@ export const GuruDashboardView: React.FC<GuruDashboardViewProps> = ({
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'buat-tugas' | 'koreksi' | 'absensi' | 'tabel-nilai'>(initialSubTab);
+
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveTab(initialSubTab);
+    }
+  }, [initialSubTab]);
+
+  const handleTabSwitch = (tab: 'buat-tugas' | 'koreksi' | 'absensi' | 'tabel-nilai') => {
+    setActiveTab(tab);
+    if (onSubTabChange) onSubTabChange(tab);
+  };
 
   // --- FORM STATE: BUAT TUGAS ---
   const [title, setTitle] = useState('');
@@ -163,40 +176,40 @@ export const GuruDashboardView: React.FC<GuruDashboardViewProps> = ({
       {/* Tab Selector */}
       <div className="flex border-b border-slate-200 gap-6">
         <button
-          onClick={() => setActiveTab('buat-tugas')}
+          onClick={() => handleTabSwitch('buat-tugas')}
           className={`pb-3 text-sm font-bold border-b-2 transition ${
             activeTab === 'buat-tugas'
-              ? 'border-indigo-600 text-indigo-600'
+              ? 'border-cyan-600 text-cyan-700'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
           ➕ Buat Tugas Baru
         </button>
         <button
-          onClick={() => setActiveTab('koreksi')}
+          onClick={() => handleTabSwitch('koreksi')}
           className={`pb-3 text-sm font-bold border-b-2 transition ${
             activeTab === 'koreksi'
-              ? 'border-indigo-600 text-indigo-600'
+              ? 'border-cyan-600 text-cyan-700'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
           📑 Riwayat & Koreksi Tugas
         </button>
         <button
-          onClick={() => setActiveTab('absensi')}
+          onClick={() => handleTabSwitch('absensi')}
           className={`pb-3 text-sm font-bold border-b-2 transition ${
             activeTab === 'absensi'
-              ? 'border-indigo-600 text-indigo-600'
+              ? 'border-cyan-600 text-cyan-700'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
           📅 Input Absensi Kelas
         </button>
         <button
-          onClick={() => setActiveTab('tabel-nilai')}
+          onClick={() => handleTabSwitch('tabel-nilai')}
           className={`pb-3 text-sm font-bold border-b-2 transition ${
             activeTab === 'tabel-nilai'
-              ? 'border-indigo-600 text-indigo-600'
+              ? 'border-cyan-600 text-cyan-700'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
