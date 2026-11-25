@@ -88,13 +88,13 @@ export const SiswaDashboard: React.FC<SiswaDashboardProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[11px] font-semibold text-cyan-800/70 tracking-wider uppercase">
-                NISN
+                {currentUser.className || 'Siswa'}
               </p>
               <h1 className="text-lg md:text-xl font-black text-slate-900 leading-tight mt-0.5">
                 {currentUser.name}
               </h1>
               <p className="text-xs text-cyan-800/60 mt-0.5">
-                {currentUser.className} · {currentUser.identifierNumber}
+                SMAN 1 Kandangan
               </p>
             </div>
             <button className="relative w-10 h-10 rounded-full bg-white/50 flex items-center justify-center hover:bg-white/80 transition">
@@ -435,7 +435,7 @@ export const SiswaDashboard: React.FC<SiswaDashboardProps> = ({
                 {/* Info rows */}
                 <div className="space-y-3">
                   {[
-                    { label: 'NISN', value: currentUser.identifierNumber, icon: '🆔' },
+                    { label: 'Status', value: 'Siswa Aktif', icon: '🎓' },
                     { label: 'Kelas', value: currentUser.className || '-', icon: '🏫' },
                     { label: 'Email', value: currentUser.email, icon: '✉️' },
                     { label: 'Nama Orang Tua', value: currentUser.parentName || '-', icon: '👤' },

@@ -1,20 +1,19 @@
 import React, { useState } from 'react';
 
 interface LoginPageProps {
-  onLogin: (name: string, nisn: string, npsn: string) => void;
+  onLogin: (name: string, npsn: string) => void;
   loginError: string | null;
   isLoading: boolean;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, loginError, isLoading }) => {
   const [name, setName] = useState('');
-  const [nisn, setNisn] = useState('');
   const [npsn, setNpsn] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin(name.trim(), nisn.trim(), npsn.trim());
+    onLogin(name.trim(), npsn.trim());
   };
 
   return (
@@ -48,7 +47,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, loginError, isLoa
           <div className="text-center mb-6">
             <h2 className="text-xl font-bold text-slate-800">Masuk Akun Siswa</h2>
             <p className="text-xs text-slate-500 mt-1">
-              Masukkan data diri untuk mengakses dashboard
+              Masukkan Nama Lengkap dan NPSN Sekolah
             </p>
           </div>
 
@@ -56,7 +55,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, loginError, isLoa
             {/* Nama Lengkap */}
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                Nama Lengkap
+                Nama Lengkap Siswa
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
@@ -76,30 +75,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, loginError, isLoa
               </div>
             </div>
 
-            {/* NISN */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                NISN (Nomor Induk Siswa Nasional)
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
-                  </svg>
-                </div>
-                <input
-                  type="text"
-                  value={nisn}
-                  onChange={(e) => setNisn(e.target.value.replace(/\D/g, ''))}
-                  placeholder="Contoh: 202410001"
-                  maxLength={15}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
-                  required
-                  inputMode="numeric"
-                />
-              </div>
-            </div>
-
             {/* NPSN */}
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1.5">
@@ -115,7 +90,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, loginError, isLoa
                   type={showPassword ? 'text' : 'password'}
                   value={npsn}
                   onChange={(e) => setNpsn(e.target.value.replace(/\D/g, ''))}
-                  placeholder="Masukkan NPSN sekolah"
+                  placeholder="Masukkan NPSN (20511959)"
                   maxLength={8}
                   className="w-full pl-10 pr-12 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition"
                   required
@@ -139,7 +114,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, loginError, isLoa
                 </button>
               </div>
               <p className="text-[10px] text-slate-400 mt-1 ml-1">
-                NPSN berfungsi sebagai kata sandi login
+                Gunakan NPSN SMAN 1 Kandangan (20511959) sebagai kata sandi
               </p>
             </div>
 
@@ -161,9 +136,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, loginError, isLoa
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isLoading || !name || !nisn || !npsn}
+              disabled={isLoading || !name || !npsn}
               className={`w-full py-3.5 rounded-xl font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2 ${
-                isLoading || !name || !nisn || !npsn
+                isLoading || !name || !npsn
                   ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
                   : 'bg-gradient-to-r from-cyan-500 to-cyan-600 text-white hover:from-cyan-600 hover:to-cyan-700 shadow-cyan-500/25 active:scale-[0.98]'
               }`}
@@ -209,7 +184,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, loginError, isLoa
             ].map((r) => (
               <button
                 key={r.role}
-                onClick={() => onLogin(`__ROLE__${r.role}`, '', '')}
+                onClick={() => onLogin(`__ROLE__${r.role}`, '')}
                 className="flex flex-col items-center gap-1 py-2.5 px-2 rounded-xl bg-slate-50 hover:bg-cyan-50 border border-slate-200 hover:border-cyan-300 transition text-center"
               >
                 <span className="text-lg">{r.icon}</span>

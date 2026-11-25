@@ -32,7 +32,7 @@ interface AppContextType {
   isAuthenticated: boolean;
   loginError: string | null;
   isLoggingIn: boolean;
-  login: (name: string, nisn: string, npsn: string) => void;
+  login: (name: string, npsn: string) => void;
   logout: () => void;
 
   currentUser: User;
@@ -176,7 +176,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [waLogs]);
 
   // ============ AUTH ============
-  const login = (name: string, nisn: string, npsn: string) => {
+  const login = (name: string, npsn: string) => {
     setLoginError(null);
     setIsLoggingIn(true);
 
@@ -196,17 +196,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // Validate NPSN
       if (npsn !== SCHOOL_NPSN) {
-        setLoginError('NPSN tidak sesuai dengan data SMAN 1 Kandangan. Pastikan NPSN yang dimasukkan benar.');
+        setLoginError('NPSN tidak sesuai dengan data SMAN 1 Kandangan. Pastikan NPSN yang dimasukkan benar (20511959).');
         setIsLoggingIn(false);
         return;
       }
 
-      // Find matching student by name (case-insensitive) AND NISN
+      // Find matching student by name (case-insensitive & trimmed)
+      const cleanInputName = name.trim().toLowerCase();
       const matchedUser = users.find(
         (u) =>
           u.role === 'SISWA' &&
-          u.name.toLowerCase() === name.toLowerCase() &&
-          u.identifierNumber === nisn
+          u.name.trim().toLowerCase() === cleanInputName
       );
 
       if (matchedUser) {
@@ -214,18 +214,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsAuthenticated(true);
         setLoginError(null);
       } else {
-        // Check if name exists but NISN doesn't match
-        const nameMatch = users.find(
-          (u) => u.role === 'SISWA' && u.name.toLowerCase() === name.toLowerCase()
-        );
-        if (nameMatch) {
-          setLoginError('NISN tidak cocok dengan nama yang terdaftar. Periksa kembali NISN Anda.');
-        } else {
-          setLoginError('Data siswa tidak ditemukan. Pastikan nama lengkap dan NISN sesuai dengan data sekolah.');
-        }
+        setLoginError('Nama siswa tidak ditemukan dalam data sekolah. Pastikan nama lengkap sudah sesuai dengan ejaan di buku induk.');
       }
       setIsLoggingIn(false);
-    }, 800);
+    }, 600);
   };
 
   const logout = () => {
