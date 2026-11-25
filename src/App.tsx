@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useApp } from './context/AppContext';
-import { RoleSwitcherBar } from './components/common/RoleSwitcherBar';
+import { LoginPage } from './components/auth/LoginPage';
+import { SiswaDashboard } from './components/siswa/SiswaDashboard';
 import { Navbar } from './components/common/Navbar';
-import { TugaskuView } from './components/siswa/TugaskuView';
 import { TaskSubmissionModal } from './components/siswa/TaskSubmissionModal';
 import { MultipleChoiceQuizModal } from './components/siswa/MultipleChoiceQuizModal';
 import { SuratBebasTugasModal } from './components/siswa/SuratBebasTugasModal';
@@ -16,7 +16,7 @@ import { VerificationView } from './components/public/VerificationView';
 import { Assignment } from './types';
 
 export const App: React.FC = () => {
-  const { currentUser } = useApp();
+  const { currentUser, isAuthenticated, login, loginError, isLoggingIn, logout } = useApp();
 
   const [activeTab, setActiveTab] = useState<string>('default');
 
@@ -35,10 +35,75 @@ export const App: React.FC = () => {
     setIsVerifyingPublic(true);
   };
 
+  // ============ NOT AUTHENTICATED => SHOW LOGIN ============
+  if (!isAuthenticated) {
+    return <LoginPage onLogin={login} loginError={loginError} isLoading={isLoggingIn} />;
+  }
+
+  // ============ SISWA ROLE => CUSTOM CANVA-STYLE DASHBOARD ============
+  if (currentUser.role === 'SISWA') {
+    return (
+      <>
+        <SiswaDashboard
+          onStartQuiz={(task) => setQuizTask(task)}
+          onSubmitTask={(task) => setSubmissionTask(task)}
+          onOpenClearance={() => setIsClearanceModalOpen(true)}
+          onLogout={logout}
+        />
+
+        {/* Modals */}
+        {submissionTask && (
+          <TaskSubmissionModal
+            assignment={submissionTask}
+            onClose={() => setSubmissionTask(null)}
+          />
+        )}
+
+        {quizTask && (
+          <MultipleChoiceQuizModal
+            assignment={quizTask}
+            onClose={() => setQuizTask(null)}
+          />
+        )}
+
+        {isClearanceModalOpen && (
+          <SuratBebasTugasModal
+            onClose={() => setIsClearanceModalOpen(false)}
+            onOpenVerificationWithCode={(code) => openVerification(code)}
+          />
+        )}
+      </>
+    );
+  }
+
+  // ============ STAFF/NON-SISWA ROLES => STANDARD LAYOUT ============
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans">
-      {/* Sandbox Role Switcher Bar */}
-      <RoleSwitcherBar />
+      {/* Compact Role Info Bar */}
+      <div className="bg-slate-900 text-white px-4 py-2 border-b border-slate-800">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">
+              {currentUser.role === 'GURU' && '👩‍🏫 Guru Mapel'}
+              {currentUser.role === 'WALI_KELAS' && '📋 Wali Kelas'}
+              {currentUser.role === 'BK' && '🛡️ Guru BK'}
+              {currentUser.role === 'TU' && '📊 Tata Usaha'}
+              {currentUser.role === 'KEPALA_SEKOLAH' && '🏛️ Kepala Sekolah'}
+              {currentUser.role === 'ADMIN' && '⚙️ Administrator'}
+            </span>
+            <span className="text-xs text-slate-300">{currentUser.name}</span>
+          </div>
+          <button
+            onClick={logout}
+            className="text-xs text-slate-400 hover:text-red-300 transition flex items-center gap-1"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Keluar
+          </button>
+        </div>
+      </div>
 
       {/* Main Navbar */}
       <Navbar
@@ -60,16 +125,6 @@ export const App: React.FC = () => {
           />
         ) : (
           <>
-            {/* Role SISWA */}
-            {currentUser.role === 'SISWA' && (
-              <TugaskuView
-                onStartQuiz={(task) => setQuizTask(task)}
-                onSubmitTask={(task) => setSubmissionTask(task)}
-                onOpenClearance={() => setIsClearanceModalOpen(true)}
-              />
-            )}
-
-            {/* Role GURU MAPEL */}
             {currentUser.role === 'GURU' && (
               <GuruDashboardView
                 initialSubTab={
@@ -84,39 +139,16 @@ export const App: React.FC = () => {
               />
             )}
 
-            {/* Role WALI KELAS */}
             {currentUser.role === 'WALI_KELAS' && <WaliKelasDashboardView />}
-
-            {/* Role BK */}
             {currentUser.role === 'BK' && <BKDashboardView />}
-
-            {/* Role TU */}
             {currentUser.role === 'TU' && <TUGradebookView />}
-
-            {/* Role KEPALA SEKOLAH */}
             {currentUser.role === 'KEPALA_SEKOLAH' && <KepsekDashboardView />}
-
-            {/* Role ADMIN */}
             {currentUser.role === 'ADMIN' && <AdminDashboardView />}
           </>
         )}
       </main>
 
       {/* Modals */}
-      {submissionTask && (
-        <TaskSubmissionModal
-          assignment={submissionTask}
-          onClose={() => setSubmissionTask(null)}
-        />
-      )}
-
-      {quizTask && (
-        <MultipleChoiceQuizModal
-          assignment={quizTask}
-          onClose={() => setQuizTask(null)}
-        />
-      )}
-
       {isClearanceModalOpen && (
         <SuratBebasTugasModal
           onClose={() => setIsClearanceModalOpen(false)}

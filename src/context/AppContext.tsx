@@ -24,7 +24,17 @@ import { evaluateDailyAttendance } from '../services/botEngine';
 import { syncSubmissionToGradebook, calculateQuizScore } from '../services/gradingEngine';
 import { createAbsenceWaNotification } from '../services/whatsappGateway';
 
+// NPSN SMAN 1 Kandangan
+const SCHOOL_NPSN = '30304180';
+
 interface AppContextType {
+  // Auth
+  isAuthenticated: boolean;
+  loginError: string | null;
+  isLoggingIn: boolean;
+  login: (name: string, nisn: string, npsn: string) => void;
+  logout: () => void;
+
   currentUser: User;
   switchRole: (role: Role) => void;
   users: User[];
@@ -77,14 +87,21 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// Auto-migration check: memastikan seluruh 704 siswa Kelas X & XI termuat otomatis
-const DB_VERSION = 'v1.3-704-students-x-xi';
+// Auto-migration check
+const DB_VERSION = 'v1.4-auth-704-students';
 if (typeof window !== 'undefined' && localStorage.getItem('kiliko_db_version') !== DB_VERSION) {
   localStorage.clear();
   localStorage.setItem('kiliko_db_version', DB_VERSION);
 }
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Auth state
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return localStorage.getItem('kiliko_auth') === 'true';
+  });
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
   const [currentUser, setCurrentUser] = useState<User>(() => {
     const saved = localStorage.getItem('kiliko_current_user');
     return saved ? JSON.parse(saved) : INITIAL_USERS[0];
@@ -125,9 +142,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : INITIAL_WA_LOGS;
   });
 
+  // Persist effects
   useEffect(() => {
     localStorage.setItem('kiliko_current_user', JSON.stringify(currentUser));
   }, [currentUser]);
+
+  useEffect(() => {
+    localStorage.setItem('kiliko_auth', isAuthenticated ? 'true' : 'false');
+  }, [isAuthenticated]);
 
   useEffect(() => {
     localStorage.setItem('kiliko_assignments', JSON.stringify(assignments));
@@ -152,6 +174,66 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem('kiliko_wa_logs', JSON.stringify(waLogs));
   }, [waLogs]);
+
+  // ============ AUTH ============
+  const login = (name: string, nisn: string, npsn: string) => {
+    setLoginError(null);
+    setIsLoggingIn(true);
+
+    // Simulate network delay for UX
+    setTimeout(() => {
+      // Quick role access for staff (special prefix)
+      if (name.startsWith('__ROLE__')) {
+        const role = name.replace('__ROLE__', '') as Role;
+        const staffUser = users.find((u) => u.role === role);
+        if (staffUser) {
+          setCurrentUser(staffUser);
+          setIsAuthenticated(true);
+          setIsLoggingIn(false);
+          return;
+        }
+      }
+
+      // Validate NPSN
+      if (npsn !== SCHOOL_NPSN) {
+        setLoginError('NPSN tidak sesuai dengan data SMAN 1 Kandangan. Pastikan NPSN yang dimasukkan benar.');
+        setIsLoggingIn(false);
+        return;
+      }
+
+      // Find matching student by name (case-insensitive) AND NISN
+      const matchedUser = users.find(
+        (u) =>
+          u.role === 'SISWA' &&
+          u.name.toLowerCase() === name.toLowerCase() &&
+          u.identifierNumber === nisn
+      );
+
+      if (matchedUser) {
+        setCurrentUser(matchedUser);
+        setIsAuthenticated(true);
+        setLoginError(null);
+      } else {
+        // Check if name exists but NISN doesn't match
+        const nameMatch = users.find(
+          (u) => u.role === 'SISWA' && u.name.toLowerCase() === name.toLowerCase()
+        );
+        if (nameMatch) {
+          setLoginError('NISN tidak cocok dengan nama yang terdaftar. Periksa kembali NISN Anda.');
+        } else {
+          setLoginError('Data siswa tidak ditemukan. Pastikan nama lengkap dan NISN sesuai dengan data sekolah.');
+        }
+      }
+      setIsLoggingIn(false);
+    }, 800);
+  };
+
+  const logout = () => {
+    setIsAuthenticated(false);
+    setCurrentUser(INITIAL_USERS[0]);
+    setLoginError(null);
+    localStorage.removeItem('kiliko_auth');
+  };
 
   const switchRole = (role: Role) => {
     const target = users.find((u) => u.role === role) || users[0];
@@ -356,7 +438,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updatedAlerts = evaluateDailyAttendance(updatedAttendance, botAlerts);
     setBotAlerts(updatedAlerts);
 
-    // Otomatis trigger notifikasi WA ke Orang Tua jika ada alert baru
+    // Otomatis trigger notifikasi WA
     updatedAlerts.forEach((alert) => {
       if (alert.priority === 'MENDESAK' && !alert.waSentToParent) {
         const student = users.find((u) => u.id === alert.studentId);
@@ -396,11 +478,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setBotAlerts(evaluateDailyAttendance(INITIAL_ATTENDANCE, []));
     setWaLogs(INITIAL_WA_LOGS);
     setCurrentUser(INITIAL_USERS[0]);
+    setIsAuthenticated(false);
   };
 
   return (
     <AppContext.Provider
       value={{
+        isAuthenticated,
+        loginError,
+        isLoggingIn,
+        login,
+        logout,
         currentUser,
         switchRole,
         users,
