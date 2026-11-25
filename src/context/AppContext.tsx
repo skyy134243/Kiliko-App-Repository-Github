@@ -25,7 +25,7 @@ import { syncSubmissionToGradebook, calculateQuizScore } from '../services/gradi
 import { createAbsenceWaNotification } from '../services/whatsappGateway';
 
 // NPSN SMAN 1 Kandangan
-const SCHOOL_NPSN = '30304180';
+const SCHOOL_NPSN = '20511959';
 
 interface AppContextType {
   // Auth
