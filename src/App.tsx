@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import { useApp } from './context/AppContext';
+import { useLenis } from './hooks/useLenis';
 import { LoginPage } from './components/auth/LoginPage';
 import { SiswaDashboard } from './components/siswa/SiswaDashboard';
 import { CanvaDashboardShell, TabItem, QuickCardItem } from './components/common/CanvaDashboardShell';
@@ -16,6 +18,9 @@ import { VerificationView } from './components/public/VerificationView';
 import { Assignment } from './types';
 
 export const App: React.FC = () => {
+  // Initialize Lenis smooth scroll across the entire application
+  useLenis();
+
   const {
     currentUser,
     isAuthenticated,
@@ -62,26 +67,28 @@ export const App: React.FC = () => {
           onLogout={logout}
         />
 
-        {submissionTask && (
-          <TaskSubmissionModal
-            assignment={submissionTask}
-            onClose={() => setSubmissionTask(null)}
-          />
-        )}
+        <AnimatePresence>
+          {submissionTask && (
+            <TaskSubmissionModal
+              assignment={submissionTask}
+              onClose={() => setSubmissionTask(null)}
+            />
+          )}
 
-        {quizTask && (
-          <MultipleChoiceQuizModal
-            assignment={quizTask}
-            onClose={() => setQuizTask(null)}
-          />
-        )}
+          {quizTask && (
+            <MultipleChoiceQuizModal
+              assignment={quizTask}
+              onClose={() => setQuizTask(null)}
+            />
+          )}
 
-        {isClearanceModalOpen && (
-          <SuratBebasTugasModal
-            onClose={() => setIsClearanceModalOpen(false)}
-            onOpenVerificationWithCode={(code) => openVerification(code)}
-          />
-        )}
+          {isClearanceModalOpen && (
+            <SuratBebasTugasModal
+              onClose={() => setIsClearanceModalOpen(false)}
+              onOpenVerificationWithCode={(code) => openVerification(code)}
+            />
+          )}
+        </AnimatePresence>
       </>
     );
   }

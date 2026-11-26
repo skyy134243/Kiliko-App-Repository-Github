@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import gsap from 'gsap';
 
 interface LoginPageProps {
   onLogin: (name: string, npsn: string) => void;
@@ -11,39 +13,119 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, loginError, isLoa
   const [npsn, setNpsn] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
+  const bubble1Ref = useRef<HTMLDivElement>(null);
+  const bubble2Ref = useRef<HTMLDivElement>(null);
+  const bubble3Ref = useRef<HTMLDivElement>(null);
+
+  // GSAP: Smooth ambient floating background bubbles
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      if (bubble1Ref.current) {
+        gsap.to(bubble1Ref.current, {
+          y: -25,
+          x: 15,
+          scale: 1.08,
+          duration: 4.5,
+          repeat: -1,
+          yoyo: true,
+          ease: 'sine.inOut',
+        });
+      }
+      if (bubble2Ref.current) {
+        gsap.to(bubble2Ref.current, {
+          y: 30,
+          x: -20,
+          scale: 0.95,
+          duration: 5.2,
+          repeat: -1,
+          yoyo: true,
+          ease: 'sine.inOut',
+          delay: 0.8,
+        });
+      }
+      if (bubble3Ref.current) {
+        gsap.to(bubble3Ref.current, {
+          y: -20,
+          scale: 1.15,
+          duration: 3.8,
+          repeat: -1,
+          yoyo: true,
+          ease: 'sine.inOut',
+          delay: 1.2,
+        });
+      }
+    });
+
+    return () => ctx.revert();
+  }, []);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onLogin(name.trim(), npsn.trim());
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyan-400 via-cyan-300 to-sky-200 flex items-center justify-center p-4">
-      {/* Background decorative elements */}
+    <div className="min-h-screen bg-gradient-to-br from-cyan-400 via-cyan-300 to-sky-200 flex items-center justify-center p-4 relative overflow-hidden">
+      {/* GSAP Animated Background decorative elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-20 -right-20 w-80 h-80 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute -bottom-32 -left-20 w-96 h-96 rounded-full bg-cyan-200/30 blur-3xl" />
-        <div className="absolute top-1/3 right-1/4 w-40 h-40 rounded-full bg-sky-300/20 blur-2xl" />
+        <div
+          ref={bubble1Ref}
+          className="absolute -top-20 -right-20 w-80 h-80 rounded-full bg-white/20 blur-3xl"
+        />
+        <div
+          ref={bubble2Ref}
+          className="absolute -bottom-32 -left-20 w-96 h-96 rounded-full bg-cyan-200/40 blur-3xl"
+        />
+        <div
+          ref={bubble3Ref}
+          className="absolute top-1/3 right-1/4 w-48 h-48 rounded-full bg-sky-300/30 blur-2xl"
+        />
       </div>
 
-      <div className="relative w-full max-w-md">
+      <motion.div
+        initial={{ opacity: 0, y: 25, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        className="relative w-full max-w-md z-10"
+      >
         {/* Logo & Brand */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-white shadow-xl shadow-cyan-500/20 mb-4">
+        <div className="text-center mb-6 sm:mb-8">
+          <motion.div
+            initial={{ scale: 0, rotate: -15 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: 'spring', damping: 14, stiffness: 200, delay: 0.1 }}
+            className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-white shadow-xl shadow-cyan-500/20 mb-4"
+          >
             <span className="text-4xl font-black text-cyan-600">K</span>
-          </div>
-          <h1 className="text-3xl font-black text-white drop-shadow-sm">
+          </motion.div>
+          <motion.h1
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="text-3xl font-black text-white drop-shadow-sm"
+          >
             Kiliko<span className="text-cyan-800">.App</span>
-          </h1>
-          <p className="text-sm text-white/80 mt-1 font-medium">
+          </motion.h1>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="text-sm text-white/80 mt-1 font-medium"
+          >
             Platform Digital Tugas, Absensi & Nilai
-          </p>
+          </motion.p>
           <p className="text-xs text-white/60 mt-0.5">
             SMAN 1 Kandangan · Tahun Ajaran 2024/2025
           </p>
         </div>
 
         {/* Login Card */}
-        <div className="bg-white rounded-3xl shadow-2xl shadow-cyan-900/10 p-8 backdrop-blur-sm">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="bg-white/95 rounded-3xl shadow-2xl shadow-cyan-900/10 p-6 sm:p-8 backdrop-blur-md border border-white/40"
+        >
           <div className="text-center mb-6">
             <h2 className="text-xl font-bold text-slate-800">Masuk Akun Siswa</h2>
             <p className="text-xs text-slate-500 mt-1">
@@ -118,29 +200,39 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, loginError, isLoa
               </p>
             </div>
 
-            {/* Error Message */}
-            {loginError && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-2.5">
-                <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <svg className="w-3 h-3 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-red-700">Akun tidak valid</p>
-                  <p className="text-[11px] text-red-600 mt-0.5">{loginError}</p>
-                </div>
-              </div>
-            )}
+            {/* Animated Error Message with AnimatePresence */}
+            <AnimatePresence>
+              {loginError && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8, height: 0 }}
+                  animate={{ opacity: 1, y: 0, height: 'auto' }}
+                  exit={{ opacity: 0, y: -8, height: 0 }}
+                  transition={{ duration: 0.25 }}
+                  className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-2.5 overflow-hidden"
+                >
+                  <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <svg className="w-3 h-3 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-red-700">Akun tidak valid</p>
+                    <p className="text-[11px] text-red-600 mt-0.5">{loginError}</p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-            {/* Submit Button */}
-            <button
+            {/* Submit Button with Framer Motion hover & tap */}
+            <motion.button
               type="submit"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
               disabled={isLoading || !name || !npsn}
               className={`w-full py-3.5 rounded-xl font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2 ${
                 isLoading || !name || !npsn
                   ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
-                  : 'bg-gradient-to-r from-cyan-500 to-cyan-600 text-white hover:from-cyan-600 hover:to-cyan-700 shadow-cyan-500/25 active:scale-[0.98]'
+                  : 'bg-gradient-to-r from-cyan-500 to-cyan-600 text-white hover:from-cyan-600 hover:to-cyan-700 shadow-cyan-500/25'
               }`}
             >
               {isLoading ? (
@@ -159,7 +251,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, loginError, isLoa
                   </svg>
                 </>
               )}
-            </button>
+            </motion.button>
           </form>
 
           {/* Divider */}
@@ -172,7 +264,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, loginError, isLoa
             </div>
           </div>
 
-          {/* Quick Role Access for Staff */}
+          {/* Quick Role Access for Staff with Motion micro-interactions */}
           <div className="grid grid-cols-3 gap-2">
             {[
               { role: 'GURU', label: 'Guru', icon: '👩‍🏫' },
@@ -182,23 +274,25 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLogin, loginError, isLoa
               { role: 'KEPALA_SEKOLAH', label: 'Kepsek', icon: '🏛️' },
               { role: 'ADMIN', label: 'Admin', icon: '⚙️' },
             ].map((r) => (
-              <button
+              <motion.button
                 key={r.role}
+                whileHover={{ scale: 1.05, y: -2 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => onLogin(`__ROLE__${r.role}`, '')}
-                className="flex flex-col items-center gap-1 py-2.5 px-2 rounded-xl bg-slate-50 hover:bg-cyan-50 border border-slate-200 hover:border-cyan-300 transition text-center"
+                className="flex flex-col items-center gap-1 py-2.5 px-2 rounded-xl bg-slate-50 hover:bg-cyan-50 border border-slate-200 hover:border-cyan-300 transition text-center shadow-xs"
               >
                 <span className="text-lg">{r.icon}</span>
                 <span className="text-[10px] font-semibold text-slate-600">{r.label}</span>
-              </button>
+              </motion.button>
             ))}
           </div>
-        </div>
+        </motion.div>
 
         {/* Footer */}
         <p className="text-center text-xs text-white/60 mt-6">
           © 2024 Kiliko.App · Disusun oleh Argha (Product Manager)
         </p>
-      </div>
+      </motion.div>
     </div>
   );
 };

@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { useApp } from '../../context/AppContext';
 import { checkClearanceEligibility, generateClearanceCertificate } from '../../services/clearanceService';
 
@@ -26,8 +27,19 @@ export const SuratBebasTugasModal: React.FC<SuratBebasTugasModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 15 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+        className="bg-white rounded-2xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200"
+      >
         {/* Navigation & Controls */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-200 mb-6 print:hidden">
           <div className="flex items-center gap-2">
@@ -210,7 +222,7 @@ export const SuratBebasTugasModal: React.FC<SuratBebasTugasModalProps> = ({
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };

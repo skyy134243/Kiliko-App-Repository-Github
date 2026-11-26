@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { useApp } from '../../context/AppContext';
 import { Assignment } from '../../types';
 
@@ -53,8 +54,19 @@ export const MultipleChoiceQuizModal: React.FC<MultipleChoiceQuizModalProps> = (
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 15 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+        className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200"
+      >
         {!isFinished ? (
           <div>
             {/* Header */}
@@ -173,7 +185,7 @@ export const MultipleChoiceQuizModal: React.FC<MultipleChoiceQuizModalProps> = (
             </button>
           </div>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };

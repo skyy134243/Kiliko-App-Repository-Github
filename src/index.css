@@ -8,6 +8,37 @@
   }
 }
 
+/* ===== LENIS SMOOTH SCROLL STYLES ===== */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
+}
+
+/* Custom sleek scrollbar for horizontal cards */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* Print Optimization for Surat Bebas Tugas Digital */
 @media print {
   body {
@@ -15,7 +46,7 @@
     color: black !important;
   }
   
-  header, nav, footer, .print\\:hidden, #role-switcher {
+  header, nav, footer, .print\:hidden, #role-switcher {
     display: none !important;
   }
 
